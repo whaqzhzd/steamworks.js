@@ -2,7 +2,7 @@ export function init(appId: number): void
 export function restartAppIfNecessary(appId: number): boolean
 export function runCallbacks(): void
 export interface PlayerSteamId {
-  steamId64: string
+  steamId64: bigint
   steamId32: string
   accountId: number
 }
@@ -91,7 +91,7 @@ export namespace matchmaking {
     Invisible = 3
   }
   export function createLobby(lobbyType: LobbyType, maxMembers: number): Promise<Lobby>
-  export function joinLobby(lobbyId: bigint): Promise<Lobby>
+  export function joinJobby(lobbyId: bigint): Promise<Lobby>
   export function getLobbies(): Promise<Array<Lobby>>
   export class Lobby {
     id: bigint
@@ -143,10 +143,10 @@ export namespace networking {
      */
     ReliableWithBuffering = 3
   }
-  export function sendP2PPacket(steamId64: string, sendType: SendType, data: Buffer): boolean
+  export function sendP2PPacket(steamId64: bigint, sendType: SendType, data: Buffer): boolean
   export function isP2PPacketAvailable(): number
   export function readP2PPacket(size: number): P2PPacket
-  export function acceptP2PSession(steamId64: string): void
+  export function acceptP2PSession(steamId64: bigint): void
 }
 export namespace stats {
   export function getInt(name: string): number | null
