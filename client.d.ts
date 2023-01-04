@@ -31,7 +31,7 @@ export namespace auth {
   export function getSessionTicket(timeoutSeconds?: number | undefined | null): Promise<Ticket>
   export class Ticket {
     cancel(): void
-    getBytes(): Buffer
+    getBytes(): Uint8Array
   }
 }
 export namespace callback {
@@ -112,6 +112,8 @@ export namespace matchmaking {
   export function setFindLobbiesNumFilter(key: string, value: number, comp: LobbyComparison): void
   export function setFindLobbiesLobbyDistanceFilter(comp: LobbyDistanceFilter): void
   export function requestLobbyData(lobbyId: bigint): boolean
+  export function getLobbyData(lobbyId: bigint, key: string): string | null
+  export function getLobbyMemberData(lobbyId: bigint, userId: bigint, key: string): string | null
   export function getLobbies(): Promise<Array<Lobby>>
   export class Lobby {
     id: bigint

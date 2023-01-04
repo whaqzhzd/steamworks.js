@@ -266,6 +266,28 @@ pub mod matchmaking {
     }
 
     #[napi]
+    pub fn get_lobby_data(lobby_id: BigInt, key: String) -> Option<String> {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .lobby_data(LobbyId::from_raw(lobby_id.get_u64().1), key.as_str())
+            .map(|s| s.to_string())
+    }
+
+    #[napi]
+    pub fn get_lobby_member_data(lobby_id: BigInt, user_id: BigInt, key: String) -> Option<String> {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .lobby_member_data(
+                LobbyId::from_raw(lobby_id.get_u64().1),
+                LobbyId::from_raw(user_id.get_u64().1),
+                key.as_str(),
+            )
+            .map(|s| s.to_string())
+    }
+
+    #[napi]
     pub async fn get_lobbies() -> Result<Vec<Lobby>, Error> {
         let client = crate::client::get_client();
 
