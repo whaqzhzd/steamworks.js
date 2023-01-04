@@ -2,7 +2,7 @@ use napi_derive::napi;
 
 #[napi]
 pub mod auth {
-    use napi::bindgen_prelude::{Uint8Array, Error};
+    use napi::bindgen_prelude::{Error, Uint8Array};
     use steamworks::{AuthSessionTicketResponse, AuthTicket};
     use tokio::sync::oneshot;
 
@@ -21,7 +21,7 @@ pub mod auth {
         }
 
         #[napi]
-        pub fn get_bytes(&self) -> Uint8Array  {
+        pub fn get_bytes(&self) -> Uint8Array {
             self.data.clone().into()
         }
     }
