@@ -23,6 +23,24 @@ pub mod matchmaking {
     }
 
     #[napi]
+    pub enum LobbyComparison {
+        EqualOrLessThan = -2,
+        LessThan = -1,
+        Equal = 0,
+        GreaterThan = 1,
+        EqualOrGreaterThan = 2,
+        NotEqual = 3,
+    }
+
+    #[napi]
+    pub enum LobbyDistanceFilter {
+        Close,
+        Default,
+        Far,
+        Worldwide,
+    }
+
+    #[napi]
     impl Lobby {
         #[napi]
         pub async fn join(&self) -> Result<Lobby, Error> {
@@ -188,6 +206,63 @@ pub mod matchmaking {
             }),
             Err(_) => Err(Error::from_reason("Failed to join lobby".to_string())),
         }
+    }
+
+    #[napi]
+    pub fn set_find_lobbies_string_filter(key: String, value: String, comp: LobbyComparison) {
+        let client = crate::client::get_client();
+        client.matchmaking().add_lobby_string_filter(
+            key,
+            value,
+            match comp {
+                LobbyComparison::EqualOrLessThan => steamworks::LobbyComparison::EqualOrLessThan,
+                LobbyComparison::LessThan => steamworks::LobbyComparison::LessThan,
+                LobbyComparison::Equal => steamworks::LobbyComparison::Equal,
+                LobbyComparison::GreaterThan => steamworks::LobbyComparison::GreaterThan,
+                LobbyComparison::EqualOrGreaterThan => {
+                    steamworks::LobbyComparison::EqualOrGreaterThan
+                }
+                LobbyComparison::NotEqual => steamworks::LobbyComparison::NotEqual,
+            },
+        );
+    }
+
+    #[napi]
+    pub fn set_find_lobbies_num_filter(key: String, value: i32, comp: LobbyComparison) {
+        let client = crate::client::get_client();
+        client.matchmaking().add_lobby_num_filter(
+            key,
+            value,
+            match comp {
+                LobbyComparison::EqualOrLessThan => steamworks::LobbyComparison::EqualOrLessThan,
+                LobbyComparison::LessThan => steamworks::LobbyComparison::LessThan,
+                LobbyComparison::Equal => steamworks::LobbyComparison::Equal,
+                LobbyComparison::GreaterThan => steamworks::LobbyComparison::GreaterThan,
+                LobbyComparison::EqualOrGreaterThan => {
+                    steamworks::LobbyComparison::EqualOrGreaterThan
+                }
+                LobbyComparison::NotEqual => steamworks::LobbyComparison::NotEqual,
+            },
+        );
+    }
+
+    #[napi]
+    pub fn set_find_lobbies_lobby_distance_filter(comp: LobbyDistanceFilter) {
+        let client = crate::client::get_client();
+        client.matchmaking().add_lobby_distance_filter(match comp {
+            LobbyDistanceFilter::Close => steamworks::LobbyDistanceFilter::Close,
+            LobbyDistanceFilter::Default => steamworks::LobbyDistanceFilter::Default,
+            LobbyDistanceFilter::Far => steamworks::LobbyDistanceFilter::Far,
+            LobbyDistanceFilter::Worldwide => steamworks::LobbyDistanceFilter::Worldwide,
+        });
+    }
+
+    #[napi]
+    pub fn request_lobby_data(lobby_id: BigInt) -> bool {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .request_lobby_data(LobbyId::from_raw(lobby_id.get_u64().1))
     }
 
     #[napi]

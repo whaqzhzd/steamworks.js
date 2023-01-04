@@ -92,8 +92,26 @@ export namespace matchmaking {
     Public = 2,
     Invisible = 3
   }
+  export const enum LobbyComparison {
+    EqualOrLessThan = -2,
+    LessThan = -1,
+    Equal = 0,
+    GreaterThan = 1,
+    EqualOrGreaterThan = 2,
+    NotEqual = 3
+  }
+  export const enum LobbyDistanceFilter {
+    Close = 0,
+    Default = 1,
+    Far = 2,
+    Worldwide = 3
+  }
   export function createLobby(lobbyType: LobbyType, maxMembers: number): Promise<Lobby>
   export function joinJobby(lobbyId: bigint): Promise<Lobby>
+  export function setFindLobbiesStringFilter(key: string, value: string, comp: LobbyComparison): void
+  export function setFindLobbiesNumFilter(key: string, value: number, comp: LobbyComparison): void
+  export function setFindLobbiesLobbyDistanceFilter(comp: LobbyDistanceFilter): void
+  export function requestLobbyData(lobbyId: bigint): boolean
   export function getLobbies(): Promise<Array<Lobby>>
   export class Lobby {
     id: bigint
