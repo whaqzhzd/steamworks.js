@@ -82,6 +82,8 @@ export namespace localplayer {
   /** @returns the 2 digit ISO 3166-1-alpha-2 format country code which client is running in, e.g. "US" or "UK". */
   export function getIpCountry(): string
   export function setRichPresence(key: string, value?: string | undefined | null): void
+  export function getPersonState(steamId64: bigint): number
+  export function getPersonAvatar(steamId64: bigint, size: number): Array<number> | null
 }
 export namespace matchmaking {
   export const enum LobbyType {
