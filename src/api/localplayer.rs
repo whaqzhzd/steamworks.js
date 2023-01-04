@@ -67,7 +67,10 @@ pub mod localplayer {
     }
 
     #[napi]
-    pub fn get_person_avatar(steam_id64: napi::bindgen_prelude::BigInt, size: u8) -> Option<Vec<u8>> {
+    pub fn get_person_avatar(
+        steam_id64: napi::bindgen_prelude::BigInt, 
+        size: u8
+    ) -> Option<Vec<u8>> {
         let client = crate::client::get_client();
         let friends = client
             .friends()
