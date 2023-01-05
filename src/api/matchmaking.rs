@@ -117,11 +117,11 @@ pub mod matchmaking {
         }
 
         #[napi]
-        pub fn set_member_data(&self, key: String, value: String) -> bool {
+        pub fn set_member_data(&self, key: String, value: String) {
             let client = crate::client::get_client();
             client
                 .matchmaking()
-                .set_lobby_data(self.lobby_id, &key, &value)
+                .set_lobby_member_data(self.lobby_id, &key, &value)
         }
 
         #[napi]
