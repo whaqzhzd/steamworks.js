@@ -106,6 +106,20 @@ export namespace matchmaking {
     Far = 2,
     Worldwide = 3
   }
+  export const enum EFriendFlags {
+    KEfriendFlagNone = 0,
+    KEfriendFlagBlocked = 1,
+    KEfriendFlagFriendshipRequested = 2,
+    KEfriendFlagImmediate = 4,
+    KEfriendFlagClanMember = 8,
+    KEfriendFlagOnGameServer = 16,
+    KEfriendFlagRequestingFriendship = 128,
+    KEfriendFlagRequestingInfo = 256,
+    KEfriendFlagIgnored = 512,
+    KEfriendFlagIgnoredFriend = 1024,
+    KEfriendFlagChatMember = 4096,
+    KEfriendFlagAll = 65535
+  }
   export function createLobby(lobbyType: LobbyType, maxMembers: number): Promise<Lobby>
   export function joinJobby(lobbyId: bigint): Promise<Lobby>
   export function setFindLobbiesStringFilter(key: string, value: string, comp: LobbyComparison): void
@@ -116,7 +130,15 @@ export namespace matchmaking {
   export function getLobbyMemberData(lobbyId: bigint, userId: bigint, key: string): string | null
   export function getOwner(lobbyId: bigint): bigint
   export function getLobbies(): Promise<Array<Lobby>>
-  export function setLobbyMemberData(member: bigint, key: string, value: string): void
+  export function setLobbyMemberData(lobbyId: bigint, key: string, value: string): void
+  export function setLobbyData(lobbyId: bigint, key: string, value: string): boolean
+  export function leave(lobbyId: bigint): void
+  export function sendLobbyChatMsg(lobbyId: bigint, body: string, cap: number): boolean
+  export function hasFriend(steamIdfriend: bigint, iFriendFlags: EFriendFlags): boolean
+  export function getMemberCount(lobbyId: bigint): bigint
+  export function getMembers(lobbyId: bigint): Array<PlayerSteamId>
+  /** Get an object containing all the lobby data */
+  export function getFullData(lobbyId: bigint): Record<string, string>
   export class Lobby {
     id: bigint
     join(): Promise<Lobby>
@@ -131,6 +153,7 @@ export namespace matchmaking {
     setData(key: string, value: string): boolean
     setMemberData(key: string, value: string): void
     deleteData(key: string): boolean
+    sendLobbyChatMsg(body: string, cap: number): boolean
     /** Get an object containing all the lobby data */
     getFullData(): Record<string, string>
     /** Merge current lobby data with provided data in a single batch */

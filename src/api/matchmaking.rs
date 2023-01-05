@@ -41,6 +41,25 @@ pub mod matchmaking {
     }
 
     #[napi]
+    pub enum EFriendFlags {
+        KEfriendFlagNone = 0x00,
+        KEfriendFlagBlocked = 0x01,
+        KEfriendFlagFriendshipRequested = 0x02,
+        KEfriendFlagImmediate = 0x04, // "regular" friend
+        KEfriendFlagClanMember = 0x08,
+        KEfriendFlagOnGameServer = 0x10,
+        // k_EFriendFlagHasPlayedWith	= 0x20,	// not currently used
+        // k_EFriendFlagFriendOfFriend	= 0x40, // not currently used
+        KEfriendFlagRequestingFriendship = 0x80,
+        KEfriendFlagRequestingInfo = 0x100,
+        KEfriendFlagIgnored = 0x200,
+        KEfriendFlagIgnoredFriend = 0x400,
+        // k_EFriendFlagSuggested		= 0x800,	// not used
+        KEfriendFlagChatMember = 0x1000,
+        KEfriendFlagAll = 0xFFFF,
+    }
+
+    #[napi]
     impl Lobby {
         #[napi]
         pub async fn join(&self) -> Result<Lobby, Error> {
@@ -128,6 +147,14 @@ pub mod matchmaking {
         pub fn delete_data(&self, key: String) -> bool {
             let client = crate::client::get_client();
             client.matchmaking().delete_lobby_data(self.lobby_id, &key)
+        }
+
+        #[napi]
+        pub fn send_lobby_chat_msg(&self, body: String, cap: i32) -> bool {
+            let client = crate::client::get_client();
+            client
+                .matchmaking()
+                .send_lobby_chat_msg(self.lobby_id, body.as_str(), cap)
         }
 
         /// Get an object containing all the lobby data
@@ -330,12 +357,117 @@ pub mod matchmaking {
     }
 
     #[napi]
-    pub fn set_lobby_member_data(member: BigInt, key: String, value: String) {
+    pub fn set_lobby_member_data(lobby_id: BigInt, key: String, value: String) {
         let client = crate::client::get_client();
         client.matchmaking().set_lobby_member_data(
-            LobbyId::from_raw(member.get_u64().1),
+            LobbyId::from_raw(lobby_id.get_u64().1),
             key.as_str(),
             value.as_str(),
         )
+    }
+
+    #[napi]
+    pub fn set_lobby_data(lobby_id: BigInt, key: String, value: String) -> bool {
+        let client = crate::client::get_client();
+        client.matchmaking().set_lobby_data(
+            LobbyId::from_raw(lobby_id.get_u64().1),
+            key.as_str(),
+            value.as_str(),
+        )
+    }
+
+    #[napi]
+    pub fn leave(lobby_id: BigInt) {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .leave_lobby(LobbyId::from_raw(lobby_id.get_u64().1));
+    }
+
+    #[napi]
+    pub fn send_lobby_chat_msg(lobby_id: BigInt, body: String, cap: i32) -> bool {
+        let client = crate::client::get_client();
+        client.matchmaking().send_lobby_chat_msg(
+            LobbyId::from_raw(lobby_id.get_u64().1),
+            body.as_str(),
+            cap,
+        )
+    }
+
+    #[napi]
+    pub fn has_friend(steam_idfriend: BigInt, i_friend_flags: EFriendFlags) -> bool {
+        let client = crate::client::get_client();
+        client.friends().has_friends(
+            steamworks::SteamId::from_raw(steam_idfriend.get_u64().1),
+            match i_friend_flags {
+                EFriendFlags::KEfriendFlagNone => steamworks::EFriendFlags::KEfriendFlagNone,
+                EFriendFlags::KEfriendFlagBlocked => steamworks::EFriendFlags::KEfriendFlagBlocked,
+                EFriendFlags::KEfriendFlagFriendshipRequested => {
+                    steamworks::EFriendFlags::KEfriendFlagFriendshipRequested
+                }
+                EFriendFlags::KEfriendFlagImmediate => {
+                    steamworks::EFriendFlags::KEfriendFlagImmediate
+                }
+                EFriendFlags::KEfriendFlagClanMember => {
+                    steamworks::EFriendFlags::KEfriendFlagClanMember
+                }
+                EFriendFlags::KEfriendFlagOnGameServer => {
+                    steamworks::EFriendFlags::KEfriendFlagOnGameServer
+                }
+                EFriendFlags::KEfriendFlagRequestingFriendship => {
+                    steamworks::EFriendFlags::KEfriendFlagRequestingFriendship
+                }
+                EFriendFlags::KEfriendFlagRequestingInfo => {
+                    steamworks::EFriendFlags::KEfriendFlagRequestingInfo
+                }
+                EFriendFlags::KEfriendFlagIgnored => steamworks::EFriendFlags::KEfriendFlagIgnored,
+                EFriendFlags::KEfriendFlagIgnoredFriend => {
+                    steamworks::EFriendFlags::KEfriendFlagIgnoredFriend
+                }
+                EFriendFlags::KEfriendFlagChatMember => {
+                    steamworks::EFriendFlags::KEfriendFlagChatMember
+                }
+                EFriendFlags::KEfriendFlagAll => steamworks::EFriendFlags::KEfriendFlagAll,
+            },
+        )
+    }
+
+    #[napi]
+    pub fn get_member_count(lobby_id: BigInt) -> usize {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .lobby_member_count(LobbyId::from_raw(lobby_id.get_u64().1))
+    }
+
+    #[napi]
+    pub fn get_members(lobby_id: BigInt) -> Vec<PlayerSteamId> {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .lobby_members(LobbyId::from_raw(lobby_id.get_u64().1))
+            .into_iter()
+            .map(|member| PlayerSteamId::from_steamid(member))
+            .collect()
+    }
+
+    /// Get an object containing all the lobby data
+    #[napi]
+    pub fn get_full_data(lobby_id: BigInt) -> HashMap<String, String> {
+        let client = crate::client::get_client();
+        let lobby = LobbyId::from_raw(lobby_id.get_u64().1);
+
+        let mut data = HashMap::new();
+
+        let count = client.matchmaking().lobby_data_count(lobby);
+        for i in 0..count {
+            let maybe_lobby_data = client.matchmaking().lobby_data_by_index(lobby, i);
+
+            if let Some((key, value)) = maybe_lobby_data {
+                data.insert(key, value);
+            }
+        }
+
+        return data;
     }
 }
