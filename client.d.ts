@@ -129,7 +129,7 @@ export namespace matchmaking {
     setJoinable(joinable: boolean): boolean
     getData(key: string): string | null
     setData(key: string, value: string): boolean
-    setMemberData(key: string, value: string): boolean
+    setMemberData(key: string, value: string): void
     deleteData(key: string): boolean
     /** Get an object containing all the lobby data */
     getFullData(): Record<string, string>
