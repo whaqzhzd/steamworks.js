@@ -293,7 +293,8 @@ pub mod matchmaking {
         client
             .matchmaking()
             .lobby_owner(LobbyId::from_raw(lobby_id.get_u64().1))
-            .raw().into()
+            .raw()
+            .into()
     }
 
     #[napi]
