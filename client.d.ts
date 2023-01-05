@@ -114,6 +114,7 @@ export namespace matchmaking {
   export function requestLobbyData(lobbyId: bigint): boolean
   export function getLobbyData(lobbyId: bigint, key: string): string | null
   export function getLobbyMemberData(lobbyId: bigint, userId: bigint, key: string): string | null
+  export function getOwner(lobbyId: bigint): bigint
   export function getLobbies(): Promise<Array<Lobby>>
   export class Lobby {
     id: bigint
