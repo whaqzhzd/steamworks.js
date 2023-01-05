@@ -116,6 +116,7 @@ export namespace matchmaking {
   export function getLobbyMemberData(lobbyId: bigint, userId: bigint, key: string): string | null
   export function getOwner(lobbyId: bigint): bigint
   export function getLobbies(): Promise<Array<Lobby>>
+  export function setLobbyMemberData(member: bigint, key: string, value: string): void
   export class Lobby {
     id: bigint
     join(): Promise<Lobby>
@@ -128,6 +129,7 @@ export namespace matchmaking {
     setJoinable(joinable: boolean): boolean
     getData(key: string): string | null
     setData(key: string, value: string): boolean
+    setMemberData(key: string, value: string): boolean
     deleteData(key: string): boolean
     /** Get an object containing all the lobby data */
     getFullData(): Record<string, string>

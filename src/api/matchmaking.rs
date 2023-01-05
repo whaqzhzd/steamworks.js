@@ -117,6 +117,14 @@ pub mod matchmaking {
         }
 
         #[napi]
+        pub fn set_member_data(&self, key: String, value: String) -> bool {
+            let client = crate::client::get_client();
+            client
+                .matchmaking()
+                .set_lobby_data(self.lobby_id, &key, &value)
+        }
+
+        #[napi]
         pub fn delete_data(&self, key: String) -> bool {
             let client = crate::client::get_client();
             client.matchmaking().delete_lobby_data(self.lobby_id, &key)
@@ -319,5 +327,15 @@ pub mod matchmaking {
                 .collect()),
             Err(e) => Err(Error::from_reason(e.to_string())),
         }
+    }
+
+    #[napi]
+    pub fn set_lobby_member_data(member: BigInt, key: String, value: String) {
+        let client = crate::client::get_client();
+        client.matchmaking().set_lobby_member_data(
+            LobbyId::from_raw(member.get_u64().1),
+            key.as_str(),
+            value.as_str(),
+        )
     }
 }
