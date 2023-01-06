@@ -37,6 +37,12 @@ export interface CallbackReturns {
         making_change: bigint
         member_state_change: ChatMemberStateChange
     }
+    [client.callback.SteamCallback.LobbyChatMessage]: {
+        steam_idlobby: bigint
+        steam_iduser: bigint
+        chat_entry_type: number
+        chat_id: number
+    }
     [client.callback.SteamCallback.P2PSessionRequest]: {
         remote: bigint
     }

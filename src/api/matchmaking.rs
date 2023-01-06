@@ -470,4 +470,12 @@ pub mod matchmaking {
 
         return data;
     }
+
+    #[napi]
+    pub fn get_chat_message(steam_idlobby: BigInt, chat_id: i32) -> String {
+        let client = crate::client::get_client();
+        client
+            .matchmaking()
+            .get_chat_message(steam_idlobby.get_u64().1, chat_id)
+    }
 }

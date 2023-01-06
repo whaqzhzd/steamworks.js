@@ -29,6 +29,7 @@ pub mod callback {
         SteamServerConnectFailure,
         LobbyDataUpdate,
         LobbyChatUpdate,
+        LobbyChatMessage,
         P2PSessionRequest,
         P2PSessionConnectFail,
     }
@@ -61,6 +62,9 @@ pub mod callback {
             }
             SteamCallback::LobbyChatUpdate => {
                 register_callback::<steamworks::LobbyChatUpdate>(threadsafe_handler)
+            }
+            SteamCallback::LobbyChatMessage => {
+                register_callback::<steamworks::LobbyChatMsgUpdate>(threadsafe_handler)
             }
             SteamCallback::P2PSessionRequest => {
                 register_callback::<steamworks::P2PSessionRequest>(threadsafe_handler)

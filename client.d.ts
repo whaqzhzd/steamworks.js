@@ -42,8 +42,9 @@ export namespace callback {
     SteamServerConnectFailure = 3,
     LobbyDataUpdate = 4,
     LobbyChatUpdate = 5,
-    P2PSessionRequest = 6,
-    P2PSessionConnectFail = 7
+    LobbyChatMessage = 6,
+    P2PSessionRequest = 7,
+    P2PSessionConnectFail = 8
   }
   export function register<C extends keyof import('./callbacks').CallbackReturns>(steamCallback: C, handler: (value: import('./callbacks').CallbackReturns[C]) => void): Handle
   export class Handle {
@@ -139,6 +140,7 @@ export namespace matchmaking {
   export function getMembers(lobbyId: bigint): Array<PlayerSteamId>
   /** Get an object containing all the lobby data */
   export function getFullData(lobbyId: bigint): Record<string, string>
+  export function getChatMessage(steamIdlobby: bigint, chatId: number): string
   export class Lobby {
     id: bigint
     join(): Promise<Lobby>
