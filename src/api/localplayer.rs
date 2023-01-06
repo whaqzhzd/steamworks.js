@@ -84,4 +84,13 @@ pub mod localplayer {
             friends.small_avatar()
         }
     }
+
+    #[napi]
+    pub fn get_friend_name(steam_id64: napi::bindgen_prelude::BigInt) -> String {
+        let client = crate::client::get_client();
+        client
+            .friends()
+            .get_friend(SteamId::from_raw(steam_id64.get_u64().1))
+            .name()
+    }
 }

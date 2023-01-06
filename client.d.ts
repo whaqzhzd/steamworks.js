@@ -85,6 +85,7 @@ export namespace localplayer {
   export function setRichPresence(key: string, value?: string | undefined | null): void
   export function getPersonState(steamId64: bigint): number
   export function getPersonAvatar(steamId64: bigint, size: number): Array<number> | null
+  export function getFriendName(steamId64: bigint): string
 }
 export namespace matchmaking {
   export const enum LobbyType {
@@ -140,7 +141,7 @@ export namespace matchmaking {
   export function getMembers(lobbyId: bigint): Array<PlayerSteamId>
   /** Get an object containing all the lobby data */
   export function getFullData(lobbyId: bigint): Record<string, string>
-  export function getChatMessage(steamIdlobby: bigint, chatId: number): string
+  export function getChatMessage(steamIdlobby: bigint, chatId: number): ChatMessage
   export class Lobby {
     id: bigint
     join(): Promise<Lobby>
@@ -160,6 +161,10 @@ export namespace matchmaking {
     getFullData(): Record<string, string>
     /** Merge current lobby data with provided data in a single batch */
     mergeFullData(data: Record<string, string>): boolean
+  }
+  export class ChatMessage {
+    chat: string
+    user: bigint
   }
 }
 export namespace networking {

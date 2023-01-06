@@ -23,6 +23,12 @@ pub mod matchmaking {
     }
 
     #[napi]
+    pub struct ChatMessage {
+        pub chat: String,
+        pub user: BigInt,
+    }
+
+    #[napi]
     pub enum LobbyComparison {
         EqualOrLessThan = -2,
         LessThan = -1,
@@ -472,10 +478,15 @@ pub mod matchmaking {
     }
 
     #[napi]
-    pub fn get_chat_message(steam_idlobby: BigInt, chat_id: i32) -> String {
+    pub fn get_chat_message(steam_idlobby: BigInt, chat_id: i32) -> ChatMessage {
         let client = crate::client::get_client();
-        client
+
+        let msg = client
             .matchmaking()
-            .get_chat_message(steam_idlobby.get_u64().1, chat_id)
+            .get_chat_message(steam_idlobby.get_u64().1, chat_id);
+        ChatMessage {
+            chat: msg.0,
+            user: BigInt::from(msg.1.raw()),
+        }
     }
 }
