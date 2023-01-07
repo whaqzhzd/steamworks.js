@@ -2,6 +2,7 @@ use napi_derive::napi;
 
 #[napi]
 pub mod callback {
+    use napi::bindgen_prelude::BigInt;
     use napi::{
         bindgen_prelude::ToNapiValue,
         threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode},
@@ -34,43 +35,254 @@ pub mod callback {
         P2PSessionConnectFail,
     }
 
+    #[napi]
+    pub enum PersonaChange {
+        NAME = 0x0001,
+        STATUS = 0x0002,
+        ComeOnline = 0x0004,
+        GoneOffline = 0x0008,
+        GamePlayed = 0x0010,
+        GameServer = 0x0020,
+        AVATAR = 0x0040,
+        JoinedSource = 0x0080,
+        LeftSource = 0x0100,
+        RelationshipChange = 0x0200,
+        NameFirstSet = 0x0400,
+        FacebookInfo = 0x0800,
+        NICKNAME = 0x1000,
+        SteamLevel = 0x2000,
+    }
+
+    #[napi]
+    pub enum ChatMemberStateChange {
+        /// This user has joined or is joining the lobby.
+        Entered,
+
+        /// This user has left or is leaving the lobby.
+        Left,
+
+        /// User disconnected without leaving the lobby first.
+        Disconnected,
+
+        /// The user has been kicked.
+        Kicked,
+
+        /// The user has been kicked and banned.
+        Banned,
+    }
+
+    #[napi]
+    pub struct PersonaStateChange {
+        pub steam_id: BigInt,
+        pub flags: i32,
+    }
+
+    #[napi]
+    pub struct LobbyDataUpdate {
+        pub lobby: BigInt,
+        pub member: BigInt,
+        pub success: bool,
+    }
+
+    #[napi]
+    pub struct LobbyChatUpdate {
+        /// The Steam ID of the lobby.
+        pub lobby: BigInt,
+        /// The user who's status in the lobby just changed - can be recipient.
+        pub user_changed: BigInt,
+        /// Chat member who made the change. This can be different from `user_changed` if kicking, muting, etc. For example, if one user kicks another from the lobby, this will be set to the id of the user who initiated the kick.
+        pub making_change: BigInt,
+
+        /// "ChatMemberStateChange" values.
+        pub member_state_change: ChatMemberStateChange,
+    }
+
+    #[napi]
+    pub struct LobbyChatMsgUpdate {
+        pub steam_idlobby: BigInt,
+        pub steam_iduser: BigInt,
+        pub chat_entry_type: u8,
+        pub chat_id: u32,
+    }
+
+    #[napi]
+    pub struct P2PSessionRequest {
+        /// The steam ID of the user requesting a p2p
+        /// session
+        pub remote: BigInt,
+    }
+
+    #[napi]
+    pub struct P2PSessionConnectFail {
+        pub remote: BigInt,
+        pub error: u8,
+    }
+
     #[napi(ts_generic_types = "C extends keyof import('./callbacks').CallbackReturns")]
     pub fn register(
         #[napi(ts_arg_type = "C")] steam_callback: SteamCallback,
         #[napi(ts_arg_type = "(value: import('./callbacks').CallbackReturns[C]) => void")] handler: JsFunction,
     ) -> Handle {
-        let threadsafe_handler: ThreadsafeFunction<serde_json::Value, ErrorStrategy::Fatal> =
-            handler
-                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
-                .unwrap();
-
         let handle = match steam_callback {
             SteamCallback::PersonaStateChange => {
-                register_callback::<steamworks::PersonaStateChange>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<
+                    PersonaStateChange,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::PersonaStateChange| {
+                    threadsafe_handler.call(
+                        PersonaStateChange {
+                            steam_id: BigInt::from(value.steam_id.raw()),
+                            flags: value.flags.bits(),
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
             SteamCallback::SteamServersConnected => {
+                let threadsafe_handler: ThreadsafeFunction<
+                    serde_json::Value,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
                 register_callback::<steamworks::SteamServersConnected>(threadsafe_handler)
             }
             SteamCallback::SteamServersDisconnected => {
+                let threadsafe_handler: ThreadsafeFunction<
+                    serde_json::Value,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
                 register_callback::<steamworks::SteamServersDisconnected>(threadsafe_handler)
             }
             SteamCallback::SteamServerConnectFailure => {
+                let threadsafe_handler: ThreadsafeFunction<
+                    serde_json::Value,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
                 register_callback::<steamworks::SteamServerConnectFailure>(threadsafe_handler)
             }
             SteamCallback::LobbyDataUpdate => {
-                register_callback::<steamworks::LobbyDataUpdate>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<LobbyDataUpdate, ErrorStrategy::Fatal> =
+                    handler
+                        .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                        .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::LobbyDataUpdate| {
+                    threadsafe_handler.call(
+                        LobbyDataUpdate {
+                            lobby: BigInt::from(value.lobby.raw()),
+                            member: BigInt::from(value.member.raw()),
+                            success: value.success,
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
             SteamCallback::LobbyChatUpdate => {
-                register_callback::<steamworks::LobbyChatUpdate>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<LobbyChatUpdate, ErrorStrategy::Fatal> =
+                    handler
+                        .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                        .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::LobbyChatUpdate| {
+                    threadsafe_handler.call(
+                        LobbyChatUpdate {
+                            lobby: BigInt::from(value.lobby.raw()),
+                            user_changed: BigInt::from(value.user_changed.raw()),
+                            making_change: BigInt::from(value.making_change.raw()),
+                            member_state_change: match value.member_state_change {
+                                steamworks::ChatMemberStateChange::Entered => {
+                                    ChatMemberStateChange::Entered
+                                }
+                                steamworks::ChatMemberStateChange::Left => {
+                                    ChatMemberStateChange::Left
+                                }
+                                steamworks::ChatMemberStateChange::Disconnected => {
+                                    ChatMemberStateChange::Disconnected
+                                }
+                                steamworks::ChatMemberStateChange::Kicked => {
+                                    ChatMemberStateChange::Kicked
+                                }
+                                steamworks::ChatMemberStateChange::Banned => {
+                                    ChatMemberStateChange::Banned
+                                }
+                            },
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
             SteamCallback::LobbyChatMessage => {
-                register_callback::<steamworks::LobbyChatMsgUpdate>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<
+                    LobbyChatMsgUpdate,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::LobbyChatMsgUpdate| {
+                    threadsafe_handler.call(
+                        LobbyChatMsgUpdate {
+                            steam_idlobby: BigInt::from(value.steam_idlobby),
+                            steam_iduser: BigInt::from(value.steam_iduser),
+                            chat_entry_type: value.chat_entry_type,
+                            chat_id: value.chat_id,
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
             SteamCallback::P2PSessionRequest => {
-                register_callback::<steamworks::P2PSessionRequest>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<
+                    P2PSessionRequest,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::P2PSessionRequest| {
+                    threadsafe_handler.call(
+                        P2PSessionRequest {
+                            remote: BigInt::from(value.remote.raw()),
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
             SteamCallback::P2PSessionConnectFail => {
-                register_callback::<steamworks::P2PSessionConnectFail>(threadsafe_handler)
+                let threadsafe_handler: ThreadsafeFunction<
+                    P2PSessionConnectFail,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
+                let client = crate::client::get_client();
+                client.register_callback(move |value: steamworks::P2PSessionConnectFail| {
+                    threadsafe_handler.call(
+                        P2PSessionConnectFail {
+                            remote: BigInt::from(value.remote.raw()),
+                            error: value.error,
+                        },
+                        ThreadsafeFunctionCallMode::Blocking,
+                    );
+                })
             }
         };
 

@@ -46,9 +46,73 @@ export namespace callback {
     P2PSessionRequest = 7,
     P2PSessionConnectFail = 8
   }
+  export const enum PersonaChange {
+    NAME = 1,
+    STATUS = 2,
+    ComeOnline = 4,
+    GoneOffline = 8,
+    GamePlayed = 16,
+    GameServer = 32,
+    AVATAR = 64,
+    JoinedSource = 128,
+    LeftSource = 256,
+    RelationshipChange = 512,
+    NameFirstSet = 1024,
+    FacebookInfo = 2048,
+    NICKNAME = 4096,
+    SteamLevel = 8192
+  }
+  export const enum ChatMemberStateChange {
+    /** This user has joined or is joining the lobby. */
+    Entered = 0,
+    /** This user has left or is leaving the lobby. */
+    Left = 1,
+    /** User disconnected without leaving the lobby first. */
+    Disconnected = 2,
+    /** The user has been kicked. */
+    Kicked = 3,
+    /** The user has been kicked and banned. */
+    Banned = 4
+  }
   export function register<C extends keyof import('./callbacks').CallbackReturns>(steamCallback: C, handler: (value: import('./callbacks').CallbackReturns[C]) => void): Handle
   export class Handle {
     disconnect(): void
+  }
+  export class PersonaStateChange {
+    steamId: bigint
+    flags: number
+  }
+  export class LobbyDataUpdate {
+    lobby: bigint
+    member: bigint
+    success: boolean
+  }
+  export class LobbyChatUpdate {
+    /** The Steam ID of the lobby. */
+    lobby: bigint
+    /** The user who's status in the lobby just changed - can be recipient. */
+    userChanged: bigint
+    /** Chat member who made the change. This can be different from `user_changed` if kicking, muting, etc. For example, if one user kicks another from the lobby, this will be set to the id of the user who initiated the kick. */
+    makingChange: bigint
+    /** "ChatMemberStateChange" values. */
+    memberStateChange: ChatMemberStateChange
+  }
+  export class LobbyChatMsgUpdate {
+    steamIdlobby: bigint
+    steamIduser: bigint
+    chatEntryType: number
+    chatId: number
+  }
+  export class P2PSessionRequest {
+    /**
+     * The steam ID of the user requesting a p2p
+     * session
+     */
+    remote: bigint
+  }
+  export class P2PSessionConnectFail {
+    remote: bigint
+    error: number
   }
 }
 export namespace cloud {
@@ -141,6 +205,7 @@ export namespace matchmaking {
   export function getMembers(lobbyId: bigint): Array<PlayerSteamId>
   /** Get an object containing all the lobby data */
   export function getFullData(lobbyId: bigint): Record<string, string>
+  /** Get Chat Message */
   export function getChatMessage(steamIdlobby: bigint, chatId: number): ChatMessage
   export class Lobby {
     id: bigint
