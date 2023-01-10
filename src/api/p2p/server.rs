@@ -765,7 +765,9 @@ pub mod steamp2p {
             }
         }
 
-        #[napi(ts_args_type = "callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void")]
+        #[napi(
+            ts_args_type = "callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void"
+        )]
         pub fn on_servers_connect_failure(&self, handler: JsFunction) -> Handle {
             if let Some(server) = self.server_raw.as_ref() {
                 let threadsafe_handler: ThreadsafeFunction<
