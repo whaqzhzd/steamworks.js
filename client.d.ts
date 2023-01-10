@@ -44,7 +44,8 @@ export namespace callback {
     LobbyChatUpdate = 5,
     LobbyChatMessage = 6,
     P2PSessionRequest = 7,
-    P2PSessionConnectFail = 8
+    P2PSessionConnectFail = 8,
+    RelayNetworkStatusCallback = 9
   }
   export const enum PersonaChange {
     NAME = 1,
@@ -113,6 +114,13 @@ export namespace callback {
   export class P2PSessionConnectFail {
     remote: bigint
     error: number
+  }
+  export class RelayNetworkStatus {
+    availability: number
+    isPingMeasurementInProgress: boolean
+    networkConfig: number
+    anyRelay: number
+    debuggingMessage: string
   }
 }
 export namespace cloud {
@@ -345,4 +353,148 @@ export namespace workshop {
    * {@link https://partner.steamgames.com/doc/api/ISteamUGC#DownloadItem}
    */
   export function download(itemId: bigint, highPriority: boolean): boolean
+}
+export namespace steamp2p {
+  export const enum EServerMode {
+    EServerModeInvalid = 0,
+    EServerModeNoAuthentication = 1,
+    EServerModeAuthentication = 2,
+    EServerModeAuthenticationAndSecure = 3
+  }
+  export const enum EServerGameState {
+    KEserverWaitingForPlayers = 0,
+    KEserverActive = 1,
+    KEserverDraw = 2,
+    KEserverWinner = 3,
+    KEserverExiting = 4
+  }
+  export function createAsyncServer(): Promise<SteamServerManager>
+  export type JsSteamClient = SteamClient
+    export class SteamClient {
+    constructor()
+  }
+  export class Handle {
+    disconnect(): void
+  }
+  export class SteamServerConnectFailure {
+    /** The reason we failed to connect to the Steam servers */
+    reason: number
+    /** Whether we are still retrying the connection. */
+    stillRetrying: boolean
+  }
+  export class SteamServersDisconnected {
+    reason: number
+  }
+  export class ValidateAuthTicketResponse {
+    /** The steam id of the entity that provided the ticket */
+    steamId: bigint
+    /** The result of the validation */
+    response?: number
+    /**
+     * The steam id of the owner of the game. Differs from
+     * `steam_id` if the game is borrowed.
+     */
+    ownerSteamId: bigint
+  }
+  export type GSPolicyResponseCallback = GsPolicyResponseCallback
+    export class GsPolicyResponseCallback {
+    secure: number
+  }
+  export type JsSteamServer = SteamServer
+    export class SteamServer {
+    constructor()
+    runCallbacks(): void
+    sendUpdatedServerDetailsToSteam(): void
+    isConnectedToSteam(): boolean
+    /** 设置应用ID */
+    setAppid(appid: number): void
+    /** 可以加入一个服务器并同时游戏的最大玩家数量 */
+    setMaxPlayer(max: number): void
+    /** 设置应用名称 */
+    setAppName(name: string): void
+    /** 设置地图名称 */
+    setMapName(name: string): void
+    /** 设置服务器名称 */
+    setServerName(name: string): void
+    /** 设置机器人的数量 */
+    setBotPlayerCount(bot: number): void
+    /** 设置FPS */
+    setInterval(interval: number): void
+    /** 获取游戏服务器的steam 唯一ID */
+    getServerSteamId(): bigint
+    /** 设置当前服务器的大厅唯一ID */
+    setLobbyId(lobbyId: bigint): void
+    /**  获取大厅唯一ID */
+    getLobbyId(): bigint
+    /**
+     * 初始化参数
+     *
+     * `pch_game_dir` 游戏名称
+     *
+     * `un_ip` 您要绑定的 IP 地址。 （应使用主机序，即 127.0.0.1 == 0x7f000001）。 您可以使用 INADDR_ANY 绑定所有本地 IPv4 地址
+     *
+     * `us_steam_port` 用于与 Steam 服务器通信的本地端口
+     *
+     * `us_game_port` 客户端进行游戏将连接至的端口
+     *
+     * `us_query_port` 将管理服务器浏览器相关任务以及来自客户端的 info ping 的端口
+     *
+     * `server_mode` 设置服务器的验证方法
+     *
+     * `pch_version_string` 版本字符串格式通常为 x.x.x.x，主服务器用它来检测服务器何时过期。 （只列出最新版的服务器）
+     *
+     */
+    initialize(pchGameDir: string, unIp: number, usSteamPort: number, usGamePort: number, usQueryPort: number, serverMode: EServerMode, pchVersionString: string): void
+    open(): void
+    onServersConnected(callback: () => void): Handle
+    onServersConnectFailure(callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void): Handle
+    onServersDisconnected(callback: ({reason}:{reason:number}) => void): Handle
+    onValidateAuthTicketResponse(callback: ({steamId,response,ownerSteamId}:{steamId:bigint,response:number,ownerSteamId:bigint}) => void): Handle
+    onGspolicyResponseCallback(callback: ({secure}:{secure:boolean}) => void): Handle
+  }
+  export class SteamServerManager {
+    onServersConnected(callback: () => void): void
+    runCallbacks(): void
+    isConnectedToSteam(): boolean
+    /** 设置应用ID */
+    setAppid(appid: number): void
+    /** 可以加入一个服务器并同时游戏的最大玩家数量 */
+    setMaxPlayer(max: number): void
+    /** 设置应用名称 */
+    setAppName(name: string): void
+    /** 设置地图名称 */
+    setMapName(name: string): void
+    /** 设置服务器名称 */
+    setServerName(name: string): void
+    /** 设置机器人的数量 */
+    setBotPlayerCount(bot: number): void
+    /** 设置FPS */
+    setInterval(interval: number): void
+    /** 获取游戏服务器的steam 唯一ID */
+    getServerSteamId(): bigint
+    /** 设置当前服务器的大厅唯一ID */
+    setLobbyId(lobbyId: bigint): void
+    /**  获取大厅唯一ID */
+    getLobbyId(): bigint
+    /**
+     * 初始化参数
+     *
+     * `pch_game_dir` 游戏名称
+     *
+     * `un_ip` 您要绑定的 IP 地址。 （应使用主机序，即 127.0.0.1 == 0x7f000001）。 您可以使用 INADDR_ANY 绑定所有本地 IPv4 地址
+     *
+     * `us_steam_port` 用于与 Steam 服务器通信的本地端口
+     *
+     * `us_game_port` 客户端进行游戏将连接至的端口
+     *
+     * `us_query_port` 将管理服务器浏览器相关任务以及来自客户端的 info ping 的端口
+     *
+     * `server_mode` 设置服务器的验证方法
+     *
+     * `pch_version_string` 版本字符串格式通常为 x.x.x.x，主服务器用它来检测服务器何时过期。 （只列出最新版的服务器）
+     *
+     */
+    initialize(pchGameDir: string, unIp: number, usSteamPort: number, usGamePort: number, usQueryPort: number, serverMode: EServerMode, pchVersionString: string): void
+    open(): void
+  }
 }

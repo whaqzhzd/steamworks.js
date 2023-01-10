@@ -33,6 +33,7 @@ pub mod callback {
         LobbyChatMessage,
         P2PSessionRequest,
         P2PSessionConnectFail,
+        RelayNetworkStatusCallback,
     }
 
     #[napi]
@@ -116,6 +117,16 @@ pub mod callback {
     pub struct P2PSessionConnectFail {
         pub remote: BigInt,
         pub error: u8,
+    }
+
+    #[napi]
+    pub struct RelayNetworkStatus {
+        pub availability: i32,
+        pub is_ping_measurement_in_progress: bool,
+        pub network_config: i32,
+        pub any_relay: i32,
+
+        pub debugging_message: String,
     }
 
     #[napi(ts_generic_types = "C extends keyof import('./callbacks').CallbackReturns")]
@@ -283,6 +294,37 @@ pub mod callback {
                         ThreadsafeFunctionCallMode::Blocking,
                     );
                 })
+            }
+            SteamCallback::RelayNetworkStatusCallback => {
+                let client = crate::client::get_client();
+
+                let threadsafe_handler: ThreadsafeFunction<
+                    RelayNetworkStatus,
+                    ErrorStrategy::Fatal,
+                > = handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+
+                let toi32 = |arg: steamworks::networking_types::NetworkingAvailabilityResult| {
+                    arg.ok()
+                        .map_or_else(|| arg.err().unwrap() as i32, |o| o as i32)
+                };
+
+                client.networking_utils().relay_network_status_callback(
+                    move |f: steamworks::networking_utils::RelayNetworkStatus| {
+                        threadsafe_handler.call(
+                            RelayNetworkStatus {
+                                availability: toi32(f.availability()),
+                                is_ping_measurement_in_progress: f
+                                    .is_ping_measurement_in_progress(),
+                                network_config: toi32(f.network_config()),
+                                any_relay: toi32(f.any_relay()),
+                                debugging_message: f.debugging_message().to_string(),
+                            },
+                            ThreadsafeFunctionCallMode::Blocking,
+                        );
+                    },
+                )
             }
         };
 

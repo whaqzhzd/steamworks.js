@@ -22,6 +22,8 @@ pub fn init(app_id: u32) -> Result<(), Error> {
         }
     }
 
+    println!("ss");
+
     let result = Client::init_app(app_id);
     match result {
         Ok((steam_client, steam_single)) => {
@@ -40,7 +42,7 @@ pub fn restart_app_if_necessary(app_id: u32) -> bool {
     steamworks::restart_app_if_necessary(AppId(app_id))
 }
 
-#[napi_derive::napi]
+#[napi]
 pub fn run_callbacks() {
     client::get_single().run_callbacks();
 }

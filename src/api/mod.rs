@@ -9,3 +9,4 @@ pub mod matchmaking;
 pub mod networking;
 pub mod stats;
 pub mod workshop;
+pub mod p2p;
