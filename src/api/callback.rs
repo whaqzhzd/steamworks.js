@@ -8,6 +8,8 @@ pub mod callback {
         threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode},
         JsFunction,
     };
+    use std::hash::Hash;
+    use std::hash::Hasher;
 
     #[napi]
     pub struct Handle {
@@ -16,9 +18,30 @@ pub mod callback {
 
     #[napi]
     impl Handle {
+        pub fn new(handle: Option<steamworks::CallbackHandle>) -> Handle {
+            Handle { handle }
+        }
+
         #[napi]
         pub fn disconnect(&mut self) {
             self.handle = None;
+        }
+    }
+
+    impl PartialEq for Handle {
+        fn eq(&self, other: &Handle) -> bool {
+            self.handle.as_ref().unwrap().id() == other.handle.as_ref().unwrap().id()
+        }
+    }
+
+    impl Eq for Handle {}
+
+    impl Hash for Handle {
+        fn hash<H>(&self, state: &mut H)
+        where
+            H: Hasher,
+        {
+            self.handle.as_ref().unwrap().id().hash(state);
         }
     }
 

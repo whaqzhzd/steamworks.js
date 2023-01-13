@@ -5,6 +5,10 @@ use steamworks::Client;
 
 pub mod client;
 
+extern crate serde;
+extern crate serde_derive;
+extern crate rmp_serde as rmps;
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -21,8 +25,6 @@ pub fn init(app_id: u32) -> Result<(), Error> {
             return Ok(());
         }
     }
-
-    println!("ss");
 
     let result = Client::init_app(app_id);
     match result {
