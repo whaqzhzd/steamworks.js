@@ -5,9 +5,9 @@ use steamworks::Client;
 
 pub mod client;
 
+extern crate rmp_serde as rmps;
 extern crate serde;
 extern crate serde_derive;
-extern crate rmp_serde as rmps;
 
 #[macro_use]
 extern crate lazy_static;
