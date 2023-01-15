@@ -16,8 +16,8 @@ pub mod steamp2p {
     use std::hash::Hasher;
     use std::net::Ipv4Addr;
     use std::sync::mpsc::{channel, Receiver, Sender};
-    use steamworks::networking_types::NetworkingIdentity;
     use steamworks::networking_types::{ListenSocketEvent, SendFlags};
+    use steamworks::networking_types::{NetConnectionEndReason, NetworkingIdentity};
     use steamworks::networking_utils::NetworkingUtils;
     use steamworks::{ServerManager, SteamServersConnected, *};
     use steamworks::{SteamError, SteamId};
@@ -62,6 +62,7 @@ pub mod steamp2p {
     }
 
     #[napi]
+    #[derive(PartialEq, Eq)]
     pub enum EServerGameState {
         KEserverWaitingForPlayers,
         KEserverActive,
@@ -234,7 +235,9 @@ pub mod steamp2p {
                                     dbg!("Rejecting connection; server full");
 
                                     request.reject(
-                                        networking_types::NetConnectionEnd::AppException,
+                                        NetConnectionEndReason::NetConnectionEnd(
+                                            networking_types::NetConnectionEnd::AppException,
+                                        ),
                                         Some("Server full!"),
                                     );
                                     return;
@@ -263,7 +266,9 @@ pub mod steamp2p {
                                     dbg!("ConnectionRequest::Accept Error");
 
                                     request.reject(
-                                        networking_types::NetConnectionEnd::AppException,
+                                        NetConnectionEndReason::NetConnectionEnd(
+                                            networking_types::NetConnectionEnd::AppException,
+                                        ),
                                         Some("Failed to accept connection"),
                                     );
 
@@ -301,7 +306,9 @@ pub mod steamp2p {
                                         .hsteam_net_connection = Some(connected.take_connection());
                                 } else {
                                     connected.take_connection().close(
-                                        networking_types::NetConnectionEnd::AppException,
+                                        NetConnectionEndReason::NetConnectionEnd(
+                                            networking_types::NetConnectionEnd::AppException,
+                                        ),
                                         Some("can not find rg_pending_client_data"),
                                         false,
                                     );
@@ -324,7 +331,9 @@ pub mod steamp2p {
                                     .map(|f| {
                                         let data = server.rg_client_data.get_mut(f).unwrap();
                                         data.hsteam_net_connection.take().unwrap().close(
-                                            networking_types::NetConnectionEnd::AppGeneric,
+                                            NetConnectionEndReason::NetConnectionEnd(
+                                                networking_types::NetConnectionEnd::AppGeneric,
+                                            ),
                                             None,
                                             false,
                                         );
@@ -447,14 +456,41 @@ pub mod steamp2p {
                 }
 
                 match header {
-                    EMessage::KEmsgClientFrameData => {}
-                    EMessage::KEmsgClientBroadcast => {}
+                    EMessage::KEmsgClientFrameData => {
+                        if let Ok(msg) = rmps::from_slice::<MsgClientFrameData>(body) {
+                            self.raw.on_client_frame_data(msg);
+                        }
+                    }
+                    EMessage::KEmsgClientBroadcast => {
+                        if let Ok(msg) = rmps::from_slice::<MsgClientDataBroadcast>(body) {
+                            self.raw.on_client_broadcast(msg);
+                        }
+                    }
                     EMessage::KEmsgClientBeginAuthentication => {
                         if let Ok(msg) = rmps::from_slice::<MsgClientBeginAuthentication>(body) {
                             self.raw.on_client_begin_authentication(msg, remote);
                         }
                     }
-                    EMessage::KEmsgClientLoadComplete => {}
+                    EMessage::KEmsgClientLoadComplete => {
+                        if self.raw.game_state == EServerGameState::KEserverActive {
+                            break;
+                        }
+
+                        let mut all_load = true;
+                        self.raw.rg_client_data.iter_mut().for_each(|data| {
+                            if data.steam_iduser.steam_id().unwrap() == remote {
+                                data.load_complete = true;
+                            }
+
+                            if !data.load_complete {
+                                all_load = false;
+                            }
+                        });
+
+                        // if all_load {
+                        // self.raw.send_messages(msg, conns);
+                        // }
+                    }
                     _ => panic!("Bad client info msg,{:?}", header),
                 }
 
@@ -848,7 +884,7 @@ pub mod steamp2p {
                 }
 
                 #[cfg(feature = "dev")]
-                dbg!("steam server init_relay_network_access success");
+                dbg!("server init_relay_network_access success");
             }
 
             self.player_count = 0;
@@ -859,7 +895,7 @@ pub mod steamp2p {
                     self.listen_socket = Some(listen);
 
                     #[cfg(feature = "dev")]
-                    dbg!("steam server create_listen_socket_p2p success");
+                    dbg!("server create_listen_socket_p2p success");
                 } else {
                     return;
                 }
@@ -871,7 +907,7 @@ pub mod steamp2p {
                 self.net_poll_group = Some(sockets.create_poll_group());
 
                 #[cfg(feature = "dev")]
-                dbg!("steam server create_poll_group success");
+                dbg!("server create_poll_group success");
             } else {
                 return;
             }
@@ -1010,6 +1046,10 @@ pub mod steamp2p {
     }
 
     impl JsSteamServer {
+        pub fn on_client_broadcast(&mut self, msg: MsgClientDataBroadcast) {}
+        pub fn on_client_frame_data(&mut self, msg: MsgClientFrameData) {}
+        pub fn on_client_games_data(&mut self, msg: MsgClientFrameData) {}
+
         pub fn on_client_begin_authentication(
             &mut self,
             auth: MsgClientBeginAuthentication,
@@ -1030,7 +1070,9 @@ pub mod steamp2p {
                 self.rg_pending_client_data.retain_mut(|f| {
                     if f.steam_iduser.steam_id().unwrap() == remote {
                         f.hsteam_net_connection.take().unwrap().close(
-                            networking_types::NetConnectionEnd::AppException,
+                            NetConnectionEndReason::NetConnectionEnd(
+                                networking_types::NetConnectionEnd::AppException,
+                            ),
                             Some("Server full"),
                             false,
                         );
@@ -1053,7 +1095,9 @@ pub mod steamp2p {
 
                     if let Err(_) = res {
                         f.hsteam_net_connection.take().unwrap().close(
-                            networking_types::NetConnectionEnd::AppException,
+                            NetConnectionEndReason::NetConnectionEnd(
+                                networking_types::NetConnectionEnd::AppException,
+                            ),
                             Some("BeginAuthSession failed"),
                             false,
                         );
@@ -1068,6 +1112,8 @@ pub mod steamp2p {
                 return true;
             });
         }
+
+        pub fn remove_player_from_server(&mut self) {}
 
         pub fn on_auth_completed(&mut self, auth_successful: bool, pending_auth_index: usize) {
             if !self.rg_pending_client_data[pending_auth_index].active {

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 pub const HSTEAM_NET_CONNECTION_INVALID: u32 = 0;
+/// https://partner.steamgames.com/doc/api/steamnetworkingtypes#ESteamNetConnectionEnd
+pub const ESTEAM_NET_CONNECTION_END_APP_MIN: i32 = 1000;
 
 // 网络协议定义
 #[derive(PartialEq, Eq, Debug)]
@@ -38,6 +40,14 @@ pub enum EMessage {
     KEmsgVoiceChatBegin = 700,
 
     KEforceDword = 0x7fffffff,
+}
+
+enum EDisconnectReason {
+    EDRClientDisconnect = ESTEAM_NET_CONNECTION_END_APP_MIN as isize + 1,
+    EDRServerClosed = ESTEAM_NET_CONNECTION_END_APP_MIN as isize + 2,
+    EDRServerReject = ESTEAM_NET_CONNECTION_END_APP_MIN as isize + 3,
+    EDRServerFull = ESTEAM_NET_CONNECTION_END_APP_MIN as isize + 4,
+    EDRClientKicked = ESTEAM_NET_CONNECTION_END_APP_MIN as isize + 5,
 }
 
 impl From<EMessage> for isize {
@@ -127,4 +137,68 @@ pub struct MsgServerFailAuthentication;
 NetMessage!(
     MsgServerFailAuthentication,
     EMessage::KEmsgServerFailAuthentication
+);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgClientLoadComplete;
+
+NetMessage!(MsgClientLoadComplete, EMessage::KEmsgClientLoadComplete);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgClientFrameData {
+    pub types: u32,
+    pub data: Vec<u8>,
+}
+
+NetMessage!(MsgClientFrameData, EMessage::KEmsgClientFrameData);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerFrameData {
+    pub types: u32,
+    pub data: Vec<u8>,
+    pub local_steam_id: u64,
+}
+
+NetMessage!(MsgServerFrameData, EMessage::KEmsgServerFrameData);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgClientDataBroadcast {
+    pub types: u32,
+    pub data: Vec<u8>,
+    pub local_steam_id: u64,
+}
+
+NetMessage!(MsgClientDataBroadcast, EMessage::KEmsgClientBroadcast);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerDataBroadcast {
+    pub types: u32,
+    pub data: Vec<u8>,
+    pub local_steam_id: u64,
+}
+
+NetMessage!(MsgServerDataBroadcast, EMessage::KEmsgServerBroadcast);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerGameStart {
+    pub game_data: Vec<MsgServerFrameData>,
+    pub buffer_size: u32,
+}
+NetMessage!(MsgServerGameStart, EMessage::KEmsgServerGameStart);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerFramesData {
+    pub game_data: Vec<MsgServerFrameData>,
+    pub buffer_size: u32,
+    pub frame_id: u32,
+}
+NetMessage!(MsgServerFramesData, EMessage::KEmsgServerFramesData);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerPassAuthentication {
+    pub player_position: u32,
+}
+NetMessage!(
+    MsgServerPassAuthentication,
+    EMessage::KEmsgServerPassAuthentication
 );

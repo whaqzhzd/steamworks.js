@@ -292,9 +292,33 @@ export namespace steamp2p {
     KEserverExiting = 4
   }
   export function createAsyncServer(): SteamServerManager
+  export class SteamReceiveUpdate {
+    buffer: Buffer
+    frameId: number
+    count: number
+  }
+  export class GameStart {
+    buffer: Buffer
+    count: number
+  }
+  export class BroadcastData {
+    buffer: Buffer
+    steamId: bigint
+  }
   export class SteamClientManager {
     initialize(): void
     onSteamConnectedSuccess(callback: (count:number) => void): void
+    onSteamAllReadyToGo(callback: () => void): void
+    onSteamOnReceiveUpdate(callback: ({buffer,frameID,count}:{buffer:ArrayBuffer,frameID:number,count:number}) => void): void
+    gameStartDataCallback(callback: ({buffer,count}:{buffer:ArrayBuffer,count:number}) => void): void
+    broadcastCallback(callback: ({buffer,steamID}:{buffer:ArrayBuffer,steamID:bigint}) => void): void
+    isConnectedToServer(): boolean
+    loadReadyToGo(): void
+    runCallback(isConnectedToServer: boolean): void
+    setLobbyId(lobbyId: bigint): void
+    sendFrameData(types: number, buffer: Buffer): void
+    setGameData(buffer: Buffer): void
+    broadcast(buffer: Buffer): void
   }
   export type JsSteamClient = SteamClient
     export class SteamClient {

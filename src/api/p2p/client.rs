@@ -5,7 +5,10 @@ pub mod steamp2p {
     use crate::api::callback::callback::Handle;
     use crate::api::p2p::message::*;
     use crate::client::now;
+    use bytebuffer::ByteBuffer;
+    use bytebuffer::Endian;
     use napi::bindgen_prelude::BigInt;
+    use napi::bindgen_prelude::Buffer;
     use napi::threadsafe_function::ErrorStrategy;
     use napi::threadsafe_function::ThreadsafeFunction;
     use napi::threadsafe_function::ThreadsafeFunctionCallMode;
@@ -16,12 +19,15 @@ pub mod steamp2p {
     use std::sync::mpsc::Sender;
     use steamworks::networking_sockets::NetworkingSockets;
     use steamworks::networking_types;
+    use steamworks::networking_types::NetConnectionEndReason;
     use steamworks::networking_types::NetworkingIdentity;
     use steamworks::networking_types::SendFlags;
     use steamworks::AuthTicket;
     use steamworks::Client;
     use steamworks::DurationControlOnlineState;
     use steamworks::LobbyGameCreated;
+    use steamworks::LobbyId;
+    use steamworks::Matchmaking;
     use steamworks::SteamError;
     use steamworks::SteamId;
     use steamworks::User;
@@ -46,6 +52,25 @@ pub mod steamp2p {
 
     enum SteamClientEvent {
         LobbyGameCreated(LobbyGameCreated),
+    }
+
+    #[napi]
+    pub struct SteamReceiveUpdate {
+        pub buffer: Buffer,
+        pub frame_id: u32,
+        pub count: u32,
+    }
+
+    #[napi]
+    pub struct GameStart {
+        pub buffer: Buffer,
+        pub count: u32,
+    }
+
+    #[napi]
+    pub struct BroadcastData {
+        pub buffer: Buffer,
+        pub steam_id: BigInt,
     }
 
     #[napi]
@@ -100,11 +125,34 @@ pub mod steamp2p {
                                 client.on_receive_server_authentication_response(false, 0);
                             }
                         }
-                        EMessage::KEmsgServerPassAuthentication => todo!(),
-                        EMessage::KEmsgServerAllReadyToGo => todo!(),
-                        EMessage::KEmsgServerFramesData => todo!(),
-                        EMessage::KEmsgServerGameStart => todo!(),
-                        EMessage::KEmsgServerSetGameStartDataComplete => todo!(),
+                        EMessage::KEmsgServerPassAuthentication => {
+                            if let Ok(msg) = rmps::from_slice::<MsgServerPassAuthentication>(body) {
+                                client.on_receive_server_authentication_response(
+                                    true,
+                                    msg.player_position,
+                                );
+                            }
+                        }
+                        EMessage::KEmsgServerAllReadyToGo => {
+                            if let Some(fun) = client.steam_all_ready_to_go.as_ref() {
+                                fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                            }
+                        }
+                        EMessage::KEmsgServerFramesData => {
+                            if let Ok(msg) = rmps::from_slice::<MsgServerFramesData>(body) {
+                                client.on_receive_update(msg);
+                            }
+                        }
+                        EMessage::KEmsgServerGameStart => {
+                            if let Ok(msg) = rmps::from_slice::<MsgServerGameStart>(body) {
+                                client.on_game_start(msg);
+                            }
+                        }
+                        EMessage::KEmsgServerSetGameStartDataComplete => {
+                            if let Some(fun) = client.set_game_start_data.as_ref() {
+                                fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                            }
+                        }
                         EMessage::KEmsgServerBroadcast => todo!(),
                         _ => panic!("error message,{:?}", header),
                     }
@@ -135,6 +183,8 @@ pub mod steamp2p {
             }
         }
 
+        pub fn on_net_connection_status_changed(&mut self) {}
+
         #[napi]
         pub fn initialize(&mut self) {
             self.raw.initialize();
@@ -146,6 +196,128 @@ pub mod steamp2p {
                 .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                 .unwrap();
             self.raw.steam_connected_success = Some(threadsafe_handler);
+        }
+
+        #[napi(ts_args_type = "callback: () => void")]
+        pub fn on_steam_all_ready_to_go(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<(), ErrorStrategy::Fatal> = handler
+                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                .unwrap();
+            self.raw.steam_all_ready_to_go = Some(threadsafe_handler);
+        }
+
+        #[napi(
+            ts_args_type = "callback: ({buffer,frameID,count}:{buffer:ArrayBuffer,frameID:number,count:number}) => void"
+        )]
+        pub fn on_steam_on_receive_update(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<SteamReceiveUpdate, ErrorStrategy::Fatal> =
+                handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+            self.raw.steam_on_receive_update = Some(threadsafe_handler);
+        }
+
+        #[napi(
+            ts_args_type = "callback: ({buffer,count}:{buffer:ArrayBuffer,count:number}) => void"
+        )]
+        pub fn game_start_data_callback(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<GameStart, ErrorStrategy::Fatal> = handler
+                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                .unwrap();
+            self.raw.game_start_data_cb = Some(threadsafe_handler);
+        }
+
+        #[napi(
+            ts_args_type = "callback: ({buffer,steamID}:{buffer:ArrayBuffer,steamID:bigint}) => void"
+        )]
+        pub fn broadcast_callback(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<BroadcastData, ErrorStrategy::Fatal> =
+                handler
+                    .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                    .unwrap();
+            self.raw.broadcast_cb = Some(threadsafe_handler);
+        }
+
+        #[napi]
+        pub fn is_connected_to_server(&self) -> bool {
+            self.raw.connected_status == EClientConnectionState::KEclientConnectedAndAuthenticated
+        }
+
+        #[napi]
+        pub fn load_ready_to_go(&self) {
+            self.raw.send_message(MsgClientLoadComplete);
+        }
+
+        #[napi]
+        pub fn run_callback(&mut self, is_connected_to_server: bool) {
+            if !self.raw.checkout {
+                return;
+            }
+
+            match self.raw.state {
+                SteamClientState::KEclientFree => {}
+                SteamClientState::KEclientInLobby => {
+                    if is_connected_to_server {
+                        self.raw.matchmaking.set_lobby_game_server(
+                            LobbyId::from_raw(self.raw.lobby_id.raw()),
+                            0,
+                            0,
+                            self.raw.steam_id_game_server.raw(),
+                        );
+
+                        self.raw.initiate_server_connection(BigInt::from(
+                            self.raw.steam_id_game_server.raw(),
+                        ));
+                    }
+                }
+                SteamClientState::KEclientGameConnecting => {}
+            }
+        }
+
+        #[napi]
+        pub fn set_lobby_id(&mut self, lobby_id: BigInt) {
+            self.raw.lobby_id = SteamId::from_raw(lobby_id.get_u64().1);
+        }
+
+        #[napi]
+        pub fn send_frame_data(&self, types: u32, buffer: Buffer) {
+            if buffer.len() == 0 {
+                return;
+            }
+
+            if types == 0 {
+                return;
+            }
+
+            self.raw.send_message(MsgClientFrameData {
+                data: buffer.to_vec(),
+                types,
+            });
+        }
+
+        #[napi]
+        pub fn set_game_data(&self, buffer: Buffer) {
+            if buffer.len() == 0 {
+                return;
+            }
+
+            self.raw.send_message(MsgClientFrameData {
+                data: buffer.to_vec(),
+                types: 0,
+            });
+        }
+
+        #[napi]
+        pub fn broadcast(&self, buffer: Buffer) {
+            if buffer.len() == 0 {
+                return;
+            }
+
+            self.raw.send_message(MsgClientDataBroadcast {
+                data: buffer.to_vec(),
+                types: 0,
+                local_steam_id: 0,
+            });
         }
     }
 
@@ -178,6 +350,7 @@ pub mod steamp2p {
         conn_server: Option<NetConnection<ClientManager>>,
         checkout: bool,
         local_id: SteamId,
+        lobby_id: SteamId,
         utils: Option<NetworkingUtils<ClientManager>>,
         handle: Option<HashSet<Handle>>,
         send: Option<Sender<SteamClientEvent>>,
@@ -187,8 +360,15 @@ pub mod steamp2p {
         last_network_data_received_time: i64,
         steam_id_game_server: SteamId,
         user: User<ClientManager>,
+        matchmaking: Matchmaking<ClientManager>,
 
         steam_connected_success: Option<ThreadsafeFunction<u32, ErrorStrategy::Fatal>>,
+        steam_all_ready_to_go: Option<ThreadsafeFunction<(), ErrorStrategy::Fatal>>,
+        steam_on_receive_update:
+            Option<ThreadsafeFunction<SteamReceiveUpdate, ErrorStrategy::Fatal>>,
+        game_start_data_cb: Option<ThreadsafeFunction<GameStart, ErrorStrategy::Fatal>>,
+        set_game_start_data: Option<ThreadsafeFunction<(), ErrorStrategy::Fatal>>,
+        broadcast_cb: Option<ThreadsafeFunction<BroadcastData, ErrorStrategy::Fatal>>,
     }
 
     #[napi]
@@ -207,6 +387,7 @@ pub mod steamp2p {
                 conn_server: None,
                 checkout: false,
                 local_id: SteamId::from_raw(0),
+                lobby_id: SteamId::from_raw(0),
                 utils: None,
                 handle: None,
                 send: None,
@@ -215,8 +396,14 @@ pub mod steamp2p {
                 last_network_data_received_time: 0,
                 steam_id_game_server: SteamId::from_raw(0),
                 user: client.user(),
+                matchmaking: client.matchmaking(),
 
                 steam_connected_success: None,
+                steam_all_ready_to_go: None,
+                steam_on_receive_update: None,
+                game_start_data_cb: None,
+                broadcast_cb: None,
+                set_game_start_data: None,
             }
         }
 
@@ -235,6 +422,8 @@ pub mod steamp2p {
             self.client_raw = Some(client);
             self.utils = Some(utils);
             self.client_socket = Some(socket);
+
+            self.register();
         }
 
         #[napi]
@@ -294,6 +483,104 @@ pub mod steamp2p {
             }
         }
 
+        pub fn on_broadcast_update(&mut self, data: MsgServerDataBroadcast) {
+            let mut buffer = ByteBuffer::new();
+            buffer.set_endian(Endian::LittleEndian);
+
+            let count = data.data.len();
+
+            if count != 0 {
+                buffer.write_bytes(&data.data);
+            }
+
+            if let Some(fun) = self.broadcast_cb.as_ref() {
+                fun.call(
+                    BroadcastData {
+                        buffer: Buffer::from(buffer.into_bytes()),
+                        steam_id: BigInt::from(data.local_steam_id),
+                    },
+                    ThreadsafeFunctionCallMode::Blocking,
+                );
+            }
+        }
+
+        pub fn on_game_start(&mut self, data: MsgServerGameStart) {
+            let mut buffer = ByteBuffer::new();
+            buffer.set_endian(Endian::LittleEndian);
+
+            let mut count = data.game_data.len();
+            let u16size = std::mem::size_of::<u16>();
+            let size = data.buffer_size as usize + u16size * count;
+            buffer.resize(size);
+
+            if count != 0 {
+                let mut offset = 0;
+                let frame_data = &data.game_data;
+
+                for frame in frame_data.iter() {
+                    buffer.write_u16(frame.data.len() as u16);
+                    offset += u16size;
+                    buffer.write_bytes(&frame.data);
+                    offset += frame.data.len();
+                }
+
+                if offset != size {
+                    buffer.clear();
+                    buffer.resize(0);
+                    count = 0;
+                }
+            }
+
+            if let Some(fun) = self.game_start_data_cb.as_ref() {
+                fun.call(
+                    GameStart {
+                        buffer: Buffer::from(buffer.into_bytes()),
+                        count: count.try_into().unwrap(),
+                    },
+                    ThreadsafeFunctionCallMode::Blocking,
+                );
+            }
+        }
+
+        pub fn on_receive_update(&mut self, data: MsgServerFramesData) {
+            let mut buffer = ByteBuffer::new();
+            buffer.set_endian(Endian::LittleEndian);
+
+            let mut count = data.game_data.len();
+            let u16size = std::mem::size_of::<u16>();
+            let size = data.buffer_size as usize + u16size * count;
+            buffer.resize(size);
+
+            if count != 0 {
+                let mut offset = 0;
+                let frame_data = &data.game_data;
+
+                for frame in frame_data.iter() {
+                    buffer.write_u16(frame.data.len() as u16);
+                    offset += u16size;
+                    buffer.write_bytes(&frame.data);
+                    offset += frame.data.len();
+                }
+
+                if offset != size {
+                    buffer.clear();
+                    buffer.resize(0);
+                    count = 0;
+                }
+            }
+
+            if let Some(fun) = self.steam_on_receive_update.as_ref() {
+                fun.call(
+                    SteamReceiveUpdate {
+                        buffer: Buffer::from(buffer.into_bytes()),
+                        frame_id: data.frame_id,
+                        count: count.try_into().unwrap(),
+                    },
+                    ThreadsafeFunctionCallMode::Blocking,
+                );
+            }
+        }
+
         pub fn on_receive_server_authentication_response(&mut self, success: bool, pos: u32) {
             if !success {
                 self.disconnect_from_server();
@@ -335,7 +622,9 @@ pub mod steamp2p {
 
             if self.conn_server.is_some() {
                 self.conn_server.take().unwrap().close(
-                    networking_types::NetConnectionEnd::AppException,
+                    NetConnectionEndReason::NetConnectionEnd(
+                        networking_types::NetConnectionEnd::AppException,
+                    ),
                     None,
                     false,
                 );
