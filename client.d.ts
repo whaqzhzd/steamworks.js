@@ -410,6 +410,7 @@ export namespace steamp2p {
     onServersConnected(callback: () => void): void
     onServersConnectFailure(callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void): void
     onServersDisconnected(callback: ({reason}:{reason:number}) => void): void
+    onAllReadyToGo(callback: (count:number) => void): void
     receiveNetworkData(): void
     runCallbacks(): void
     isConnectedToSteam(): boolean

@@ -11,7 +11,7 @@ pub mod steamp2p {
         JsFunction,
     };
     use networking_sockets::*;
-    use std::collections::HashSet;
+    use std::collections::{HashMap, HashSet};
     use std::hash::Hash;
     use std::hash::Hasher;
     use std::net::Ipv4Addr;
@@ -164,10 +164,12 @@ pub mod steamp2p {
         server_sockets: Option<NetworkingSockets<ClientManager>>,
 
         utils: NetworkingUtils<ClientManager>,
-
         handle: Option<HashSet<Handle>>,
-
         send: Option<Sender<SteamServerEvent>>,
+
+        frame_messages: HashMap<u64, Vec<MsgServerFrameData>>,
+        frame_messages_size: u32,
+        game_start_data: Option<MsgServerGameStart>,
     }
 
     #[napi]
@@ -180,6 +182,7 @@ pub mod steamp2p {
             Option<ThreadsafeFunction<SteamServerConnectFailure, ErrorStrategy::Fatal>>,
         steam_servers_disconnected:
             Option<ThreadsafeFunction<SteamServersDisconnected, ErrorStrategy::Fatal>>,
+        all_ready_to_go: Option<ThreadsafeFunction<i32, ErrorStrategy::Fatal>>,
     }
 
     #[napi]
@@ -216,6 +219,15 @@ pub mod steamp2p {
                 .unwrap();
 
             self.steam_servers_disconnected = Some(threadsafe_handler);
+        }
+
+        #[napi(ts_args_type = "callback: (count:number) => void")]
+        pub fn on_all_ready_to_go(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<i32, ErrorStrategy::Fatal> = handler
+                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                .unwrap();
+
+            self.all_ready_to_go = Some(threadsafe_handler);
         }
 
         pub fn receive(&mut self) {
@@ -400,10 +412,14 @@ pub mod steamp2p {
                                     println!("auth failed for a client");
                                 };
 
-                                server.on_auth_completed(
+                                if server.on_auth_completed(
                                     response.response.is_none(),
                                     pending_auth_index,
-                                );
+                                ) {
+                                    if let Some(fun) = self.all_ready_to_go.as_ref() {
+                                        fun.call(1, ThreadsafeFunctionCallMode::Blocking);
+                                    }
+                                }
                             }
                         }
                         SteamServerEvent::GSPolicyResponseCallback(_) => {
@@ -458,7 +474,11 @@ pub mod steamp2p {
                 match header {
                     EMessage::KEmsgClientFrameData => {
                         if let Ok(msg) = rmps::from_slice::<MsgClientFrameData>(body) {
-                            self.raw.on_client_frame_data(msg);
+                            if msg.types == 0 {
+                                self.raw.on_client_games_data(msg, remote);
+                            } else {
+                                self.raw.on_client_frame_data(msg, remote);
+                            };
                         }
                     }
                     EMessage::KEmsgClientBroadcast => {
@@ -487,9 +507,16 @@ pub mod steamp2p {
                             }
                         });
 
-                        // if all_load {
-                        // self.raw.send_messages(msg, conns);
-                        // }
+                        if all_load {
+                            let take = self.raw.game_start_data.take().unwrap();
+
+                            self.raw.rg_client_data.iter().for_each(|f| {
+                                self.raw.send_message_ref(
+                                    &take,
+                                    f.hsteam_net_connection.as_ref().unwrap(),
+                                );
+                            });
+                        }
                     }
                     _ => panic!("Bad client info msg,{:?}", header),
                 }
@@ -641,6 +668,7 @@ pub mod steamp2p {
             steam_servers_connected: None,
             steam_server_connect_failure: None,
             steam_servers_disconnected: None,
+            all_ready_to_go: None,
         }
     }
 
@@ -688,6 +716,13 @@ pub mod steamp2p {
 
                 handle: None,
                 send: None,
+
+                frame_messages: HashMap::new(),
+                frame_messages_size: 0,
+                game_start_data: Some(MsgServerGameStart {
+                    game_data: vec![],
+                    buffer_size: 0,
+                }),
             };
 
             server
@@ -1046,9 +1081,68 @@ pub mod steamp2p {
     }
 
     impl JsSteamServer {
-        pub fn on_client_broadcast(&mut self, msg: MsgClientDataBroadcast) {}
-        pub fn on_client_frame_data(&mut self, msg: MsgClientFrameData) {}
-        pub fn on_client_games_data(&mut self, msg: MsgClientFrameData) {}
+        pub fn on_client_broadcast(&mut self, msg: MsgClientDataBroadcast) {
+            let server: MsgServerDataBroadcast = msg.into();
+            self.rg_client_data.iter().for_each(|f| {
+                self.send_message_ref(&server, f.hsteam_net_connection.as_ref().unwrap())
+            });
+        }
+
+        pub fn on_client_frame_data(&mut self, msg: MsgClientFrameData, remote: SteamId) {
+            let data = self
+                .rg_client_data
+                .iter_mut()
+                .find(|f| f.steam_iduser.steam_id().unwrap() == remote);
+
+            if let Some(_) = data.as_ref() {
+                let values = self
+                    .frame_messages
+                    .entry(remote.raw())
+                    .or_insert_with(|| vec![]);
+
+                // 一个逻辑帧只接受同一个类型的同一个指令
+                if let Some(d) = values.iter_mut().find(|v| v.types == msg.types) {
+                    // 如果有了旧的数据
+                    // 就用新数据覆盖
+                    d.data = msg.data;
+                } else {
+                    // 如果没有旧数据
+                    // 直接追加
+                    values.push(msg.into());
+                    self.frame_messages_size += 1;
+                }
+            }
+        }
+
+        pub fn on_client_games_data(&mut self, msg: MsgClientFrameData, remote: SteamId) {
+            let data = self
+                .rg_client_data
+                .iter_mut()
+                .find(|f| f.steam_iduser.steam_id().unwrap() == remote);
+
+            if let Some(_) = data.as_ref() {
+                let data = self.game_start_data.as_mut().unwrap();
+
+                let values = data
+                    .game_data
+                    .iter_mut()
+                    .find(|f| f.local_steam_id == remote.raw());
+
+                // 一个逻辑帧只接受同一个类型的同一个指令
+                if let Some(d) = values {
+                    // 如果有了旧的数据
+                    // 就用新数据覆盖
+                    data.buffer_size -= d.data.len() as u32;
+                    data.buffer_size += msg.data.len() as u32;
+                    d.data = msg.data;
+                } else {
+                    // 如果没有旧数据
+                    // 直接追加
+                    data.buffer_size = data.buffer_size + msg.data.len() as u32;
+                    data.game_data.push(msg.into());
+                }
+            }
+        }
 
         pub fn on_client_begin_authentication(
             &mut self,
@@ -1115,10 +1209,14 @@ pub mod steamp2p {
 
         pub fn remove_player_from_server(&mut self) {}
 
-        pub fn on_auth_completed(&mut self, auth_successful: bool, pending_auth_index: usize) {
+        pub fn on_auth_completed(
+            &mut self,
+            auth_successful: bool,
+            pending_auth_index: usize,
+        ) -> bool {
             if !self.rg_pending_client_data[pending_auth_index].active {
                 println!("got auth completed callback for client who is not pending");
-                return;
+                return false;
             }
 
             if !auth_successful {
@@ -1139,51 +1237,45 @@ pub mod steamp2p {
                         .as_ref()
                         .unwrap(),
                 );
-                return;
+                return false;
             }
+
+            let mut data = self.rg_pending_client_data.remove(pending_auth_index);
+            data.ul_tick_count_last_data = now();
+
+            self.send_message(
+                MsgServerPassAuthentication {
+                    player_position: pending_auth_index as u32,
+                },
+                data.hsteam_net_connection.as_ref().unwrap(),
+            );
+            self.rg_client_data.push(data);
+
+            if self.rg_client_data.len() <= self.max_players.into() {
+                return false;
+            }
+
+            if self.rg_client_data.iter().all(|f| f.active) {
+                let ready = MsgServerAllReadyToGo;
+                self.rg_client_data.iter().for_each(|f| {
+                    self.send_message_ref(&ready, f.hsteam_net_connection.as_ref().unwrap());
+                });
+
+                return true;
+            }
+
+            false
         }
 
-        pub fn send_messages<T>(&self, msg: T, conns: &[&NetConnection<ClientManager>])
+        pub fn send_message<T>(&self, msg: T, conn: &NetConnection<ClientManager>)
         where
             T: INetMessage + serde::Serialize,
         {
             //TODO u8 pool alloc and free
-
-            let messages = conns
-                .iter()
-                .map(|f| {
-                    let mut bytes = Vec::new();
-                    msg.serialize(&mut rmps::Serializer::new(&mut bytes))
-                        .unwrap();
-
-                    let mut header: Vec<u8> = T::ID.into();
-                    header.append(&mut bytes);
-
-                    let mut message = self.utils.allocate_message(header.len());
-                    message.set_connection(f);
-                    message.set_send_flags(SendFlags::RELIABLE_NO_NAGLE);
-                    message.set_data(header).unwrap();
-
-                    message
-                })
-                .collect::<Vec<_>>();
-
-            let results = self.listen_socket.as_ref().unwrap().send_messages(messages);
-
-            results.iter().for_each(|result| {
-                result
-                    .map_err(|e| match e {
-                        SteamError::InvalidParameter => println!("SteamServerFailed sending data to server: Invalid connection handle, or the individual message is too big"),
-                        SteamError::InvalidState => println!("SteamServerFailed sending data to server: Connection is in an invalid state"),
-                        SteamError::NoConnection => println!("SteamServerFailed sending data to server: Connection has ended"),
-                        SteamError::LimitExceeded => println!("SteamServerFailed sending data to server: There was already too much data queued to be sent"),
-                        _ => println!("SteamServerSendMessageToConnection error,{:?}",e as i32)
-                    })
-                    .unwrap();
-            });
+            self.send_message_ref(&msg, conn);
         }
 
-        pub fn send_message<T>(&self, msg: T, conn: &NetConnection<ClientManager>)
+        pub fn send_message_ref<T>(&self, msg: &T, conn: &NetConnection<ClientManager>)
         where
             T: INetMessage + serde::Serialize,
         {

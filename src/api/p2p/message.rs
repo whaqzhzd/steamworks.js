@@ -152,7 +152,17 @@ pub struct MsgClientFrameData {
 
 NetMessage!(MsgClientFrameData, EMessage::KEmsgClientFrameData);
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+impl From<MsgClientFrameData> for MsgServerFrameData {
+    fn from(value: MsgClientFrameData) -> Self {
+        MsgServerFrameData {
+            data: value.data,
+            types: value.types,
+            local_steam_id: 0,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct MsgServerFrameData {
     pub types: u32,
     pub data: Vec<u8>,
@@ -179,7 +189,17 @@ pub struct MsgServerDataBroadcast {
 
 NetMessage!(MsgServerDataBroadcast, EMessage::KEmsgServerBroadcast);
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+impl From<MsgClientDataBroadcast> for MsgServerDataBroadcast {
+    fn from(value: MsgClientDataBroadcast) -> Self {
+        MsgServerDataBroadcast {
+            data: value.data,
+            types: value.types,
+            local_steam_id: value.local_steam_id,
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
 pub struct MsgServerGameStart {
     pub game_data: Vec<MsgServerFrameData>,
     pub buffer_size: u32,
@@ -202,3 +222,8 @@ NetMessage!(
     MsgServerPassAuthentication,
     EMessage::KEmsgServerPassAuthentication
 );
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgServerAllReadyToGo;
+
+NetMessage!(MsgServerAllReadyToGo, EMessage::KEmsgServerAllReadyToGo);
