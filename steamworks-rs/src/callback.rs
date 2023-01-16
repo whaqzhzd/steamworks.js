@@ -20,7 +20,6 @@ pub struct CallbackHandle<Manager = ClientManager> {
 }
 unsafe impl<Manager> Send for CallbackHandle<Manager> {}
 
-
 impl<Manager> CallbackHandle<Manager> {
     pub fn id(&self) -> i32 {
         self.id

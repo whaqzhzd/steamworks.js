@@ -1,8 +1,8 @@
 use crate::networking_sockets_callback;
 use crate::networking_types::{
-    ListenSocketEvent, MessageNumber, NetConnectionEnd, NetConnectionInfo, NetworkingAvailability,
-    NetworkingAvailabilityError, NetworkingConfigEntry, NetworkingIdentity, NetworkingMessage,
-    SendFlags, SteamIpAddr, NetConnectionEndReason,
+    ListenSocketEvent, MessageNumber, NetConnectionEnd, NetConnectionEndReason, NetConnectionInfo,
+    NetworkingAvailability, NetworkingAvailabilityError, NetworkingConfigEntry, NetworkingIdentity,
+    NetworkingMessage, SendFlags, SteamIpAddr,
 };
 use crate::{CallbackHandle, Inner, SResult};
 #[cfg(test)]
