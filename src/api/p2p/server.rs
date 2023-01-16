@@ -177,7 +177,7 @@ pub mod steamp2p {
         rx: Receiver<SteamServerEvent>,
         raw: JsSteamServer,
 
-        steam_servers_connected: Option<ThreadsafeFunction<(), ErrorStrategy::Fatal>>,
+        steam_servers_connected: Option<ThreadsafeFunction<i32, ErrorStrategy::Fatal>>,
         steam_server_connect_failure:
             Option<ThreadsafeFunction<SteamServerConnectFailure, ErrorStrategy::Fatal>>,
         steam_servers_disconnected:
@@ -187,12 +187,15 @@ pub mod steamp2p {
 
     #[napi]
     impl SteamServerManager {
-        #[napi(ts_args_type = "callback: () => void")]
+        #[napi(ts_args_type = "callback: (count:number) => void")]
         pub fn on_servers_connected(&mut self, handler: JsFunction) {
-            let threadsafe_handler: ThreadsafeFunction<(), ErrorStrategy::Fatal> = handler
+            let threadsafe_handler: ThreadsafeFunction<i32, ErrorStrategy::Fatal> = handler
                 .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                 .unwrap();
             self.steam_servers_connected = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_servers_connected");
         }
 
         #[napi(
@@ -207,6 +210,9 @@ pub mod steamp2p {
                 .unwrap();
 
             self.steam_server_connect_failure = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("steam_server_connect_failure");
         }
 
         #[napi(ts_args_type = "callback: ({reason}:{reason:number}) => void")]
@@ -219,6 +225,9 @@ pub mod steamp2p {
                 .unwrap();
 
             self.steam_servers_disconnected = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_servers_disconnected");
         }
 
         #[napi(ts_args_type = "callback: (count:number) => void")]
@@ -228,6 +237,9 @@ pub mod steamp2p {
                 .unwrap();
 
             self.all_ready_to_go = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_all_ready_to_go");
         }
 
         pub fn receive(&mut self) {
@@ -236,6 +248,9 @@ pub mod steamp2p {
             loop {
                 if let Some(socket) = server.listen_socket.as_ref() {
                     if let Some(event) = socket.try_receive_event() {
+                        #[cfg(feature = "dev")]
+                        dbg!("ListenSocketEvent Receive");
+
                         match event {
                             ListenSocketEvent::Connecting(mut request) => {
                                 #[cfg(feature = "dev")]
@@ -374,7 +389,10 @@ pub mod steamp2p {
                             server.send_updated_server_details_to_steam();
 
                             if let Some(fun) = self.steam_servers_connected.as_ref() {
-                                fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                                fun.call(
+                                    server.connected_success_count as i32,
+                                    ThreadsafeFunctionCallMode::Blocking,
+                                );
                             }
                         }
                         SteamServerEvent::SteamServerConnectFailure(failure) => {
@@ -532,6 +550,7 @@ pub mod steamp2p {
             }
 
             self.receive();
+            self.receive_network_data();
         }
 
         #[napi]

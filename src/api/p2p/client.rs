@@ -153,7 +153,11 @@ pub mod steamp2p {
                                 fun.call((), ThreadsafeFunctionCallMode::Blocking);
                             }
                         }
-                        EMessage::KEmsgServerBroadcast => todo!(),
+                        EMessage::KEmsgServerBroadcast => {
+                            if let Ok(msg) = rmps::from_slice::<MsgServerDataBroadcast>(body) {
+                                client.on_broadcast_update(msg);
+                            }
+                        }
                         _ => panic!("error message,{:?}", header),
                     }
 
@@ -170,11 +174,9 @@ pub mod steamp2p {
                                 return;
                             }
 
-                            if SteamId::from_raw(created.ul_steam_idgame_server).is_valid() {
-                                client.initiate_server_connection(BigInt::from(
-                                    created.ul_steam_idgame_server,
-                                ));
-                            }
+                            client.initiate_server_connection(BigInt::from(
+                                created.ul_steam_idgame_server,
+                            ));
                         }
                     }
                 } else {
@@ -196,6 +198,9 @@ pub mod steamp2p {
                 .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                 .unwrap();
             self.raw.steam_connected_success = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_steam_connected_success");
         }
 
         #[napi(ts_args_type = "callback: () => void")]
@@ -204,6 +209,9 @@ pub mod steamp2p {
                 .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                 .unwrap();
             self.raw.steam_all_ready_to_go = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_steam_all_ready_to_go");
         }
 
         #[napi(
@@ -215,6 +223,9 @@ pub mod steamp2p {
                     .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                     .unwrap();
             self.raw.steam_on_receive_update = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_steam_on_receive_update");
         }
 
         #[napi(
@@ -225,6 +236,9 @@ pub mod steamp2p {
                 .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                 .unwrap();
             self.raw.game_start_data_cb = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("game_start_data_callback");
         }
 
         #[napi(
@@ -236,6 +250,9 @@ pub mod steamp2p {
                     .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
                     .unwrap();
             self.raw.broadcast_cb = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("broadcast_callback");
         }
 
         #[napi]
@@ -272,6 +289,8 @@ pub mod steamp2p {
                 }
                 SteamClientState::KEclientGameConnecting => {}
             }
+
+            self.receive();
         }
 
         #[napi]
@@ -448,6 +467,9 @@ pub mod steamp2p {
 
             if let Ok(p2p) = p2p {
                 self.conn_server = Some(p2p);
+
+                #[cfg(feature = "dev")]
+                dbg!("JsSteamClient initiate_server_connection success");
             } else {
                 self.conn_server = None;
             }
@@ -496,7 +518,7 @@ pub mod steamp2p {
             if let Some(fun) = self.broadcast_cb.as_ref() {
                 fun.call(
                     BroadcastData {
-                        buffer: Buffer::from(buffer.into_bytes()),
+                        buffer: Buffer::from(buffer.into_vec()),
                         steam_id: BigInt::from(data.local_steam_id),
                     },
                     ThreadsafeFunctionCallMode::Blocking,
@@ -534,7 +556,7 @@ pub mod steamp2p {
             if let Some(fun) = self.game_start_data_cb.as_ref() {
                 fun.call(
                     GameStart {
-                        buffer: Buffer::from(buffer.into_bytes()),
+                        buffer: Buffer::from(buffer.into_vec()),
                         count: count.try_into().unwrap(),
                     },
                     ThreadsafeFunctionCallMode::Blocking,
@@ -572,7 +594,7 @@ pub mod steamp2p {
             if let Some(fun) = self.steam_on_receive_update.as_ref() {
                 fun.call(
                     SteamReceiveUpdate {
-                        buffer: Buffer::from(buffer.into_bytes()),
+                        buffer: Buffer::from(buffer.into_vec()),
                         frame_id: data.frame_id,
                         count: count.try_into().unwrap(),
                     },
@@ -641,7 +663,7 @@ pub mod steamp2p {
             self.steam_id_game_server = SteamId::from_raw(msg.ul_steam_idserver);
 
             if let Some(info) = self.conn_server.as_ref().unwrap().get_connection_info() {
-                self.un_server_ip = info.ip_v4();
+                self.un_server_ip = info.ip_v4().unwrap().into();
                 self.us_server_port = info.port();
             }
 

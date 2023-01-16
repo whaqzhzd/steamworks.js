@@ -1,0 +1,9 @@
+/target/
+**/*.rs.bk
+Cargo.lock
+.idea/
+.vscode/
+
+*.iml
+steamworks-sys/lib/steam/*
+!steamworks-sys/lib/steam/redistributable_bin/

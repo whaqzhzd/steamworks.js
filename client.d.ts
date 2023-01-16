@@ -407,7 +407,7 @@ export namespace steamp2p {
     onGspolicyResponseCallback(callback: ({secure}:{secure:boolean}) => void): Handle
   }
   export class SteamServerManager {
-    onServersConnected(callback: () => void): void
+    onServersConnected(callback: (count:number) => void): void
     onServersConnectFailure(callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void): void
     onServersDisconnected(callback: ({reason}:{reason:number}) => void): void
     onAllReadyToGo(callback: (count:number) => void): void

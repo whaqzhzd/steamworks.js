@@ -1,0 +1,19 @@
+[package]
+name = "steamworks-sys"
+version = "0.9.0"
+authors = ["Thinkofname"]
+build = "build.rs"
+description = "Provides raw bindings to the steamworks sdk"
+license = "MIT / Apache-2.0"
+repository = "https://github.com/Noxime/steamworks-rs"
+documentation = "https://docs.rs/steamworks-sys"
+edition = "2021"
+
+[features]
+default = []
+rebuild-bindings = ["bindgen"]
+
+[dependencies]
+
+[build-dependencies]
+bindgen = { version = "0.59", optional = true }
