@@ -148,6 +148,10 @@ impl<Manager: 'static> NetworkingSockets<Manager> {
         if handle == sys::k_HSteamListenSocket_Invalid {
             Err(InvalidHandle)
         } else {
+            
+            #[cfg(feature = "dev")]
+            dbg!(handle);
+
             Ok(ListenSocket::new(handle, self.sockets, self.inner.clone()))
         }
     }

@@ -85,99 +85,109 @@ pub mod steamp2p {
             let mut client = &mut self.raw;
 
             loop {
-                let messages = client.conn_server.as_ref().unwrap().receive_messages(32);
-                for message in messages {
-                    client.last_network_data_received_time = now();
+                if let Some(conn) = client.conn_server.as_ref() {
+                    let messages = conn.receive_messages(32);
+                    for message in messages {
+                        client.last_network_data_received_time = now();
 
-                    let data = message.data();
+                        let data = message.data();
 
-                    //  确保网络已经联通
-                    if client.connected_status == EClientConnectionState::KEclientNotConnected
-                        && client.state != SteamClientState::KEclientGameConnecting
-                    {
+                        //  确保网络已经联通
+                        if client.connected_status == EClientConnectionState::KEclientNotConnected
+                            && client.state != SteamClientState::KEclientGameConnecting
+                        {
+                            drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                            continue;
+                        }
+
+                        if data.len() < 4 {
+                            println!("got garbage on client socket, too short");
+
+                            drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                            continue;
+                        }
+
+                        let header: EMessage = data[0..4].to_vec().into();
+                        let body = &data[5..];
+
+                        if header == EMessage::Error {
+                            drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                            continue;
+                        }
+
+                        match header {
+                            EMessage::KEmsgServerSendInfo => {
+                                if let Ok(msg) = rmps::from_slice::<MsgServerSendInfo>(body) {
+                                    client.on_receive_server_info(msg);
+                                }
+                            }
+                            EMessage::KEmsgServerFailAuthentication => {
+                                if let Ok(_) = rmps::from_slice::<MsgServerFailAuthentication>(body)
+                                {
+                                    client.on_receive_server_authentication_response(false, 0);
+                                }
+                            }
+                            EMessage::KEmsgServerPassAuthentication => {
+                                if let Ok(msg) =
+                                    rmps::from_slice::<MsgServerPassAuthentication>(body)
+                                {
+                                    client.on_receive_server_authentication_response(
+                                        true,
+                                        msg.player_position,
+                                    );
+                                }
+                            }
+                            EMessage::KEmsgServerAllReadyToGo => {
+                                if let Some(fun) = client.steam_all_ready_to_go.as_ref() {
+                                    fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                                }
+                            }
+                            EMessage::KEmsgServerFramesData => {
+                                if let Ok(msg) = rmps::from_slice::<MsgServerFramesData>(body) {
+                                    client.on_receive_update(msg);
+                                }
+                            }
+                            EMessage::KEmsgServerGameStart => {
+                                if let Ok(msg) = rmps::from_slice::<MsgServerGameStart>(body) {
+                                    client.on_game_start(msg);
+                                }
+                            }
+                            EMessage::KEmsgServerSetGameStartDataComplete => {
+                                if let Some(fun) = client.set_game_start_data.as_ref() {
+                                    fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                                }
+                            }
+                            EMessage::KEmsgServerBroadcast => {
+                                if let Ok(msg) = rmps::from_slice::<MsgServerDataBroadcast>(body) {
+                                    client.on_broadcast_update(msg);
+                                }
+                            }
+                            _ => panic!("error message,{:?}", header),
+                        }
+
                         drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                        continue;
                     }
 
-                    if data.len() < 4 {
-                        println!("got garbage on client socket, too short");
+                    if let Ok(result) = self.rx.try_recv() {
+                        match result {
+                            SteamClientEvent::LobbyGameCreated(created) => {
+                                #[cfg(feature = "dev")]
+                                dbg!("SteamClientEvent::LobbyGameCreated");
 
-                        drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                        continue;
-                    }
+                                #[cfg(feature = "dev")]
+                                dbg!(client.state != SteamClientState::KEclientInLobby);
 
-                    let header: EMessage = data[0..4].to_vec().into();
-                    let body = &data[5..];
+                                if client.state != SteamClientState::KEclientInLobby {
+                                    return;
+                                }
 
-                    if header == EMessage::Error {
-                        drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                        continue;
-                    }
-
-                    match header {
-                        EMessage::KEmsgServerSendInfo => {
-                            if let Ok(msg) = rmps::from_slice::<MsgServerSendInfo>(body) {
-                                client.on_receive_server_info(msg);
+                                client.initiate_server_connection(BigInt::from(
+                                    created.ul_steam_idgame_server,
+                                ));
                             }
                         }
-                        EMessage::KEmsgServerFailAuthentication => {
-                            if let Ok(_) = rmps::from_slice::<MsgServerFailAuthentication>(body) {
-                                client.on_receive_server_authentication_response(false, 0);
-                            }
-                        }
-                        EMessage::KEmsgServerPassAuthentication => {
-                            if let Ok(msg) = rmps::from_slice::<MsgServerPassAuthentication>(body) {
-                                client.on_receive_server_authentication_response(
-                                    true,
-                                    msg.player_position,
-                                );
-                            }
-                        }
-                        EMessage::KEmsgServerAllReadyToGo => {
-                            if let Some(fun) = client.steam_all_ready_to_go.as_ref() {
-                                fun.call((), ThreadsafeFunctionCallMode::Blocking);
-                            }
-                        }
-                        EMessage::KEmsgServerFramesData => {
-                            if let Ok(msg) = rmps::from_slice::<MsgServerFramesData>(body) {
-                                client.on_receive_update(msg);
-                            }
-                        }
-                        EMessage::KEmsgServerGameStart => {
-                            if let Ok(msg) = rmps::from_slice::<MsgServerGameStart>(body) {
-                                client.on_game_start(msg);
-                            }
-                        }
-                        EMessage::KEmsgServerSetGameStartDataComplete => {
-                            if let Some(fun) = client.set_game_start_data.as_ref() {
-                                fun.call((), ThreadsafeFunctionCallMode::Blocking);
-                            }
-                        }
-                        EMessage::KEmsgServerBroadcast => {
-                            if let Ok(msg) = rmps::from_slice::<MsgServerDataBroadcast>(body) {
-                                client.on_broadcast_update(msg);
-                            }
-                        }
-                        _ => panic!("error message,{:?}", header),
-                    }
-
-                    drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                }
-
-                if let Ok(result) = self.rx.try_recv() {
-                    match result {
-                        SteamClientEvent::LobbyGameCreated(created) => {
-                            #[cfg(feature = "dev")]
-                            dbg!("SteamClientEvent::LobbyGameCreated");
-
-                            if client.state == SteamClientState::KEclientInLobby {
-                                return;
-                            }
-
-                            client.initiate_server_connection(BigInt::from(
-                                created.ul_steam_idgame_server,
-                            ));
-                        }
+                    } else {
+                        break;
                     }
                 } else {
                     break;
@@ -266,7 +276,11 @@ pub mod steamp2p {
         }
 
         #[napi]
-        pub fn run_callback(&mut self, is_connected_to_server: bool) {
+        pub fn run_callback(
+            &mut self,
+            is_connected_to_server: bool,
+            policy_response_callback: bool,
+        ) {
             if !self.raw.checkout {
                 return;
             }
@@ -274,16 +288,23 @@ pub mod steamp2p {
             match self.raw.state {
                 SteamClientState::KEclientFree => {}
                 SteamClientState::KEclientInLobby => {
-                    if is_connected_to_server {
+                    if is_connected_to_server && policy_response_callback {
+                        #[cfg(feature = "dev")]
+                        dbg!(
+                            "JsSteamClient set_lobby_game_server",
+                            self.raw.steam_id_game_server.as_ref().unwrap().raw(),
+                            self.raw.lobby_id.as_ref().unwrap().raw()
+                        );
+
                         self.raw.matchmaking.set_lobby_game_server(
-                            LobbyId::from_raw(self.raw.lobby_id.raw()),
+                            LobbyId::from_raw(self.raw.lobby_id.as_ref().unwrap().raw()),
                             0,
                             0,
-                            self.raw.steam_id_game_server.raw(),
+                            self.raw.steam_id_game_server.as_ref().unwrap().raw(),
                         );
 
                         self.raw.initiate_server_connection(BigInt::from(
-                            self.raw.steam_id_game_server.raw(),
+                            self.raw.steam_id_game_server.as_ref().unwrap().raw(),
                         ));
                     }
                 }
@@ -295,7 +316,18 @@ pub mod steamp2p {
 
         #[napi]
         pub fn set_lobby_id(&mut self, lobby_id: BigInt) {
-            self.raw.lobby_id = SteamId::from_raw(lobby_id.get_u64().1);
+            self.raw.lobby_id = Some(SteamId::from_raw(lobby_id.get_u64().1));
+
+            #[cfg(feature = "dev")]
+            dbg!("set_lobby_id", self.raw.lobby_id);
+        }
+
+        #[napi]
+        pub fn set_steam_id_game_server(&mut self, lobby_id: BigInt) {
+            self.raw.steam_id_game_server = Some(SteamId::from_raw(lobby_id.get_u64().1));
+
+            #[cfg(feature = "dev")]
+            dbg!("set_steam_id_game_server", self.raw.steam_id_game_server);
         }
 
         #[napi]
@@ -368,8 +400,8 @@ pub mod steamp2p {
         connected_status: EClientConnectionState,
         conn_server: Option<NetConnection<ClientManager>>,
         checkout: bool,
-        local_id: SteamId,
-        lobby_id: SteamId,
+        local_id: Option<SteamId>,
+        lobby_id: Option<SteamId>,
         utils: Option<NetworkingUtils<ClientManager>>,
         handle: Option<HashSet<Handle>>,
         send: Option<Sender<SteamClientEvent>>,
@@ -377,7 +409,7 @@ pub mod steamp2p {
         client_socket: Option<NetworkingSockets<ClientManager>>,
         // 我们最后一次从服务器获得数据的时间
         last_network_data_received_time: i64,
-        steam_id_game_server: SteamId,
+        steam_id_game_server: Option<SteamId>,
         user: User<ClientManager>,
         matchmaking: Matchmaking<ClientManager>,
 
@@ -405,15 +437,15 @@ pub mod steamp2p {
                 connected_status: EClientConnectionState::KEclientNotConnected,
                 conn_server: None,
                 checkout: false,
-                local_id: SteamId::from_raw(0),
-                lobby_id: SteamId::from_raw(0),
+                local_id: None,
+                lobby_id: None,
                 utils: None,
                 handle: None,
                 send: None,
                 client_raw: None,
                 client_socket: None,
                 last_network_data_received_time: 0,
-                steam_id_game_server: SteamId::from_raw(0),
+                steam_id_game_server: None,
                 user: client.user(),
                 matchmaking: client.matchmaking(),
 
@@ -428,8 +460,11 @@ pub mod steamp2p {
 
         #[napi]
         pub fn initialize(&mut self) {
+            #[cfg(feature = "dev")]
+            dbg!("JsSteamClient initialize");
+
             let client = crate::client::get_client();
-            self.local_id = self.user.steam_id();
+            self.local_id = Some(self.user.steam_id());
 
             self.checkout = true;
             self.state = SteamClientState::KEclientInLobby;
@@ -443,6 +478,7 @@ pub mod steamp2p {
             self.client_socket = Some(socket);
 
             self.register();
+            self.init_relay_network_access();
         }
 
         #[napi]
@@ -458,6 +494,9 @@ pub mod steamp2p {
             self.state = SteamClientState::KEclientGameConnecting;
 
             let identity = NetworkingIdentity::new_steam_id(SteamId::from_raw(server.get_u64().1));
+
+            #[cfg(feature = "dev")]
+            dbg!(identity.steam_id());
 
             let p2p = self
                 .client_socket
@@ -651,16 +690,17 @@ pub mod steamp2p {
                     false,
                 );
             }
-            self.steam_id_game_server = SteamId::from_raw(0);
+
+            self.steam_id_game_server = None;
         }
 
         /// extract the IP address of the user from the socket
         pub fn on_receive_server_info(&mut self, msg: MsgServerSendInfo) {
             #[cfg(feature = "dev")]
-            dbg!("JsSteamClient Handle register");
+            dbg!("JsSteamClient on_receive_server_info");
 
             self.connected_status = EClientConnectionState::KEclientConnectedPendingAuthentication;
-            self.steam_id_game_server = SteamId::from_raw(msg.ul_steam_idserver);
+            self.steam_id_game_server = Some(SteamId::from_raw(msg.ul_steam_idserver));
 
             if let Some(info) = self.conn_server.as_ref().unwrap().get_connection_info() {
                 self.un_server_ip = info.ip_v4().unwrap().into();

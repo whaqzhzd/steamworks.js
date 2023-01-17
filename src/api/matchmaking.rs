@@ -218,10 +218,15 @@ pub mod matchmaking {
 
         let result = rx.await.unwrap();
         match result {
-            Ok(lobby_id) => Ok(Lobby {
-                id: BigInt::from(lobby_id.raw()),
-                lobby_id,
-            }),
+            Ok(lobby_id) => {
+                #[cfg(feature = "dev")]
+                dbg!(lobby_id);
+
+                Ok(Lobby {
+                    id: BigInt::from(lobby_id.raw()),
+                    lobby_id,
+                })
+            }
             Err(e) => Err(Error::from_reason(e.to_string())),
         }
     }

@@ -72,6 +72,7 @@ impl Server {
                     sys::EServerMode::eServerModeAuthenticationAndSecure
                 }
             };
+
             if !sys::SteamInternal_GameServer_Init(
                 raw_ip,
                 steam_port,
@@ -84,6 +85,7 @@ impl Server {
             }
             sys::SteamAPI_ManualDispatch_Init();
             let server_raw = sys::SteamAPI_SteamGameServer_v014();
+
             let server = Arc::new(Inner {
                 _manager: ServerManager { _priv: () },
                 callbacks: Mutex::new(Callbacks {
@@ -95,6 +97,7 @@ impl Server {
                     independent_connections: Default::default(),
                     connection_callback: Default::default(),
                 }),
+                mode: "server",
             });
             Ok((
                 Server {
@@ -326,6 +329,30 @@ impl Server {
         }
     }
 
+    pub fn networking_server_sockets(
+        &self,
+    ) -> networking_sockets::NetworkingSockets<ServerManager> {
+        unsafe {
+            let sockets = sys::SteamAPI_SteamGameServerNetworkingSockets_SteamAPI_v012();
+            debug_assert!(!sockets.is_null());
+            networking_sockets::NetworkingSockets {
+                sockets,
+                inner: self.inner.clone(),
+            }
+        }
+    }
+
+    pub fn networking_utils(&self) -> networking_utils::NetworkingUtils<ServerManager> {
+        unsafe {
+            let utils = sys::SteamAPI_SteamNetworkingUtils_SteamAPI_v004();
+            debug_assert!(!utils.is_null());
+            networking_utils::NetworkingUtils {
+                utils,
+                inner: self.inner.clone(),
+            }
+        }
+    }
+
     /* TODO: Buggy currently?
     /// Returns an accessor to the steam apps interface
     pub fn apps(&self) -> Apps<ServerManager> {
@@ -405,6 +432,10 @@ pub struct ServerManager {
 unsafe impl Manager for ServerManager {
     unsafe fn get_pipe() -> sys::HSteamPipe {
         sys::SteamGameServer_GetHSteamPipe()
+    }
+
+    fn get_name() -> String {
+        "Server".to_owned()
     }
 }
 

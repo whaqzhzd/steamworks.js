@@ -442,7 +442,7 @@ impl<Manager> Matchmaking<Manager> {
         lobby_id: LobbyId,
         un_server_ip: u32,
         un_server_port: u16,
-        steam_idservr: u64,
+        steam_game_server: u64,
     ) {
         unsafe {
             sys::SteamAPI_ISteamMatchmaking_SetLobbyGameServer(
@@ -450,7 +450,7 @@ impl<Manager> Matchmaking<Manager> {
                 lobby_id.0,
                 un_server_ip,
                 un_server_port,
-                steam_idservr,
+                steam_game_server,
             );
         }
     }

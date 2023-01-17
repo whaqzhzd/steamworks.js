@@ -91,6 +91,7 @@ struct Inner<Manager> {
     _manager: Manager,
     callbacks: Mutex<Callbacks>,
     networking_sockets_data: Mutex<NetworkingSocketsData<Manager>>,
+    mode: &'static str,
 }
 
 struct Callbacks {
@@ -172,6 +173,7 @@ impl Client<ClientManager> {
                     independent_connections: Default::default(),
                     connection_callback: Default::default(),
                 }),
+                mode: "client",
             });
             Ok((
                 Client {
@@ -425,17 +427,6 @@ impl<Manager> Client<Manager> {
         }
     }
 
-    pub fn networking_server_sockets(&self) -> networking_sockets::NetworkingSockets<Manager> {
-        unsafe {
-            let sockets = sys::SteamAPI_SteamGameServerNetworkingSockets_SteamAPI_v012();
-            debug_assert!(!sockets.is_null());
-            networking_sockets::NetworkingSockets {
-                sockets,
-                inner: self.inner.clone(),
-            }
-        }
-    }
-
     pub fn networking_utils(&self) -> networking_utils::NetworkingUtils<Manager> {
         unsafe {
             let utils = sys::SteamAPI_SteamNetworkingUtils_SteamAPI_v004();
@@ -451,6 +442,7 @@ impl<Manager> Client<Manager> {
 /// Used to separate client and game server modes
 pub unsafe trait Manager {
     unsafe fn get_pipe() -> sys::HSteamPipe;
+    fn get_name() -> String;
 }
 
 /// Manages keeping the steam api active for clients
@@ -461,6 +453,10 @@ pub struct ClientManager {
 unsafe impl Manager for ClientManager {
     unsafe fn get_pipe() -> sys::HSteamPipe {
         sys::SteamAPI_GetHSteamPipe()
+    }
+
+    fn get_name() -> String {
+        "Client".to_owned()
     }
 }
 

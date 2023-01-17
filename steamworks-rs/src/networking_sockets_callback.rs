@@ -14,6 +14,10 @@ pub(crate) fn get_or_create_connection_callback<Manager: 'static>(
     inner: Arc<Inner<Manager>>,
     sockets: *mut ISteamNetworkingSockets,
 ) -> Arc<CallbackHandle<Manager>> {
+    #[cfg(feature = "dev")]
+    dbg!("get_or_create_connection_callback entry");
+
+    let mode = inner.mode;
     let mut network_socket_data = inner.networking_sockets_data.lock().unwrap();
     if let Some(callback) = network_socket_data.connection_callback.upgrade() {
         callback
@@ -24,6 +28,12 @@ pub(crate) fn get_or_create_connection_callback<Manager: 'static>(
         };
         let callback = unsafe {
             register_callback(&inner, move |event: NetConnectionStatusChanged| {
+                #[cfg(feature = "dev")]
+                dbg!(
+                    "get_or_create_connection_callback NetConnectionStatusChanged",
+                    mode
+                );
+
                 handler.callback(event);
             })
         };
@@ -44,9 +54,18 @@ unsafe impl<Manager> Sync for ConnectionCallbackHandler<Manager> {}
 
 impl<Manager: 'static> ConnectionCallbackHandler<Manager> {
     pub(crate) fn callback(&self, event: NetConnectionStatusChanged) {
+        #[cfg(feature = "dev")]
+        dbg!("get_or_create_connection_callback callback");
+
         if let Some(socket) = event.connection_info.listen_socket() {
+            #[cfg(feature = "dev")]
+            dbg!("get_or_create_connection_callback listen_socket");
+
             self.listen_socket_callback(socket, event);
         } else {
+            #[cfg(feature = "dev")]
+            dbg!("get_or_create_connection_callback independent_connection_callback");
+
             self.independent_connection_callback(event);
         }
     }
@@ -63,6 +82,9 @@ impl<Manager: 'static> ConnectionCallbackHandler<Manager> {
                 .get(&socket_handle)
                 .and_then(|(socket, sender)| socket.upgrade().map(|socket| (socket, sender)))
             {
+                #[cfg(feature = "dev")]
+                dbg!("get_or_create_connection_callback listen_socket_callback");
+
                 let connection_handle = event.connection;
                 let state = event.connection_info.state().expect("invalid state");
                 if let Ok(event) = event.into_listen_socket_event(socket) {

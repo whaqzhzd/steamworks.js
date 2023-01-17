@@ -31,6 +31,16 @@ pub fn init(app_id: u32) -> Result<(), Error> {
         Ok((steam_client, steam_single)) => {
             steam_client.user_stats().request_current_stats();
 
+            steam_client
+                .utils()
+                .set_warning_callback(|severity, pch_debug_text| {
+                    println!("error: {:?}", pch_debug_text);
+
+                    if severity >= 1 {
+                        // place to set a breakpoint for catching API errors
+                    }
+                });
+
             client::set_client(steam_client);
             client::set_single(steam_single);
             Ok(())
@@ -50,3 +60,13 @@ pub fn run_callbacks() {
 }
 
 pub mod api;
+
+#[cfg(test)]
+mod test {
+    use std::net::Ipv4Addr;
+
+    #[test]
+    fn test() {
+        assert_eq!(Ipv4Addr::from(0), Ipv4Addr::UNSPECIFIED);
+    }
+}

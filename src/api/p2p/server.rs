@@ -105,13 +105,13 @@ pub mod steamp2p {
         load_complete: bool,
         ul_tick_count_last_data: i64,
         steam_iduser: NetworkingIdentity,
-        hsteam_net_connection: Option<NetConnection<ClientManager>>,
+        hsteam_net_connection: Option<NetConnection<ServerManager>>,
     }
 
     impl ClientConnectionData {
         pub fn new(
             identity: NetworkingIdentity,
-            connection: Option<NetConnection<ClientManager>>,
+            connection: Option<NetConnection<ServerManager>>,
         ) -> Self {
             ClientConnectionData {
                 active: false,
@@ -126,6 +126,7 @@ pub mod steamp2p {
     #[napi(js_name = "SteamServer")]
     pub struct JsSteamServer {
         is_connected_to_steam: bool,
+        policy_response_callback: bool,
         can_close: bool,
         setp: bool,
         dt_total: i32,
@@ -157,13 +158,13 @@ pub mod steamp2p {
         server_mode: EServerMode,
         pch_version_string: String,
 
-        listen_socket: Option<ListenSocket<ClientManager>>, // drop CloseListenSocket
-        net_poll_group: Option<NetPollGroup<ClientManager>>, // drop DestroyPollGroup
+        listen_socket: Option<ListenSocket<ServerManager>>, // drop CloseListenSocket
+        net_poll_group: Option<NetPollGroup<ServerManager>>, // drop DestroyPollGroup
         server_raw: Option<Server>,                         // drop LogOff Shutdown
         server_single: Option<SingleClient<ServerManager>>,
-        server_sockets: Option<NetworkingSockets<ClientManager>>,
+        server_sockets: Option<NetworkingSockets<ServerManager>>,
 
-        utils: NetworkingUtils<ClientManager>,
+        utils: Option<NetworkingUtils<ServerManager>>,
         handle: Option<HashSet<Handle>>,
         send: Option<Sender<SteamServerEvent>>,
 
@@ -183,6 +184,7 @@ pub mod steamp2p {
         steam_servers_disconnected:
             Option<ThreadsafeFunction<SteamServersDisconnected, ErrorStrategy::Fatal>>,
         all_ready_to_go: Option<ThreadsafeFunction<i32, ErrorStrategy::Fatal>>,
+        gspolicy_response_callback: Option<ThreadsafeFunction<(), ErrorStrategy::Fatal>>,
     }
 
     #[napi]
@@ -240,6 +242,18 @@ pub mod steamp2p {
 
             #[cfg(feature = "dev")]
             dbg!("on_all_ready_to_go");
+        }
+
+        #[napi(ts_args_type = "callback: () => void")]
+        pub fn on_gspolicy_response_callback(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<(), ErrorStrategy::Fatal> = handler
+                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                .unwrap();
+
+            self.gspolicy_response_callback = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("on_gspolicy_response_callback");
         }
 
         pub fn receive(&mut self) {
@@ -449,6 +463,11 @@ pub mod steamp2p {
                                 }
 
                                 println!("server steam id is : {:?}", raw.steam_id().raw());
+                                server.policy_response_callback = true;
+
+                                if let Some(fun) = self.gspolicy_response_callback.as_ref() {
+                                    fun.call((), ThreadsafeFunctionCallMode::Blocking);
+                                }
                             }
                         }
                     }
@@ -464,98 +483,101 @@ pub mod steamp2p {
                 return;
             }
 
-            for e in self
-                .raw
-                .net_poll_group
-                .as_ref()
-                .unwrap()
-                .receive_messages(128)
-            {
-                let remote = e.identity_peer().steam_id().unwrap();
-                let data = e.data();
+            if let Some(group) = self.raw.net_poll_group.as_ref() {
+                for e in group.receive_messages(128) {
+                    let remote = e.identity_peer().steam_id().unwrap();
+                    let data = e.data();
 
-                if data.len() < 4 {
-                    println!("got garbage on server socket, too short");
+                    if data.len() < 4 {
+                        println!("got garbage on server socket, too short");
 
-                    drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                    continue;
-                }
-
-                let header: EMessage = data[0..4].to_vec().into();
-                let body = &data[5..];
-
-                if header == EMessage::Error {
-                    drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
-                    continue;
-                }
-
-                match header {
-                    EMessage::KEmsgClientFrameData => {
-                        if let Ok(msg) = rmps::from_slice::<MsgClientFrameData>(body) {
-                            if msg.types == 0 {
-                                self.raw.on_client_games_data(msg, remote);
-                            } else {
-                                self.raw.on_client_frame_data(msg, remote);
-                            };
-                        }
+                        drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                        continue;
                     }
-                    EMessage::KEmsgClientBroadcast => {
-                        if let Ok(msg) = rmps::from_slice::<MsgClientDataBroadcast>(body) {
-                            self.raw.on_client_broadcast(msg);
-                        }
-                    }
-                    EMessage::KEmsgClientBeginAuthentication => {
-                        if let Ok(msg) = rmps::from_slice::<MsgClientBeginAuthentication>(body) {
-                            self.raw.on_client_begin_authentication(msg, remote);
-                        }
-                    }
-                    EMessage::KEmsgClientLoadComplete => {
-                        if self.raw.game_state == EServerGameState::KEserverActive {
-                            break;
-                        }
 
-                        let mut all_load = true;
-                        self.raw.rg_client_data.iter_mut().for_each(|data| {
-                            if data.steam_iduser.steam_id().unwrap() == remote {
-                                data.load_complete = true;
+                    let header: EMessage = data[0..4].to_vec().into();
+                    let body = &data[5..];
+
+                    if header == EMessage::Error {
+                        drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                        continue;
+                    }
+
+                    match header {
+                        EMessage::KEmsgClientFrameData => {
+                            if let Ok(msg) = rmps::from_slice::<MsgClientFrameData>(body) {
+                                if msg.types == 0 {
+                                    self.raw.on_client_games_data(msg, remote);
+                                } else {
+                                    self.raw.on_client_frame_data(msg, remote);
+                                };
+                            }
+                        }
+                        EMessage::KEmsgClientBroadcast => {
+                            if let Ok(msg) = rmps::from_slice::<MsgClientDataBroadcast>(body) {
+                                self.raw.on_client_broadcast(msg);
+                            }
+                        }
+                        EMessage::KEmsgClientBeginAuthentication => {
+                            if let Ok(msg) = rmps::from_slice::<MsgClientBeginAuthentication>(body)
+                            {
+                                self.raw.on_client_begin_authentication(msg, remote);
+                            }
+                        }
+                        EMessage::KEmsgClientLoadComplete => {
+                            if self.raw.game_state == EServerGameState::KEserverActive {
+                                break;
                             }
 
-                            if !data.load_complete {
-                                all_load = false;
-                            }
-                        });
+                            let mut all_load = true;
+                            self.raw.rg_client_data.iter_mut().for_each(|data| {
+                                if data.steam_iduser.steam_id().unwrap() == remote {
+                                    data.load_complete = true;
+                                }
 
-                        if all_load {
-                            let take = self.raw.game_start_data.take().unwrap();
-
-                            self.raw.rg_client_data.iter().for_each(|f| {
-                                self.raw.send_message_ref(
-                                    &take,
-                                    f.hsteam_net_connection.as_ref().unwrap(),
-                                );
+                                if !data.load_complete {
+                                    all_load = false;
+                                }
                             });
-                        }
-                    }
-                    _ => panic!("Bad client info msg,{:?}", header),
-                }
 
-                drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                            if all_load {
+                                let take = self.raw.game_start_data.take().unwrap();
+
+                                self.raw.rg_client_data.iter().for_each(|f| {
+                                    self.raw.send_message_ref(
+                                        &take,
+                                        f.hsteam_net_connection.as_ref().unwrap(),
+                                    );
+                                });
+                            }
+                        }
+                        _ => panic!("Bad client info msg,{:?}", header),
+                    }
+
+                    drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
+                }
             }
         }
 
         #[napi]
         pub fn run_callbacks(&mut self) {
+            self.receive();
+
             {
                 self.raw.run_callbacks();
             }
 
-            self.receive();
             self.receive_network_data();
         }
 
         #[napi]
         pub fn is_connected_to_steam(&self) -> bool {
             self.raw.is_connected_to_steam
+        }
+
+        #[napi]
+        pub fn is_policy_response_callback(&self) -> bool {
+            self.raw.policy_response_callback
         }
 
         /// 设置应用ID
@@ -688,6 +710,7 @@ pub mod steamp2p {
             steam_server_connect_failure: None,
             steam_servers_disconnected: None,
             all_ready_to_go: None,
+            gspolicy_response_callback: None,
         }
     }
 
@@ -695,10 +718,9 @@ pub mod steamp2p {
     impl JsSteamServer {
         #[napi(constructor)]
         pub fn new() -> Self {
-            let client = crate::client::get_client();
-
             let server = JsSteamServer {
                 is_connected_to_steam: false,
+                policy_response_callback: false,
                 can_close: false,
                 setp: false,
                 dt_total: 0,
@@ -731,7 +753,7 @@ pub mod steamp2p {
                 listen_socket: None,
                 net_poll_group: None,
 
-                utils: client.networking_utils(),
+                utils: None,
 
                 handle: None,
                 send: None,
@@ -908,13 +930,10 @@ pub mod steamp2p {
                 },
                 self.pch_version_string.as_str(),
             ) {
-                let client = crate::client::get_client();
-                self.server_raw = Some(server);
                 self.server_single = Some(single);
-                self.server_sockets = Some(client.networking_server_sockets());
-
-                #[cfg(feature = "dev")]
-                dbg!("steam server init success");
+                self.server_sockets = Some(server.networking_server_sockets());
+                self.utils = Some(server.networking_utils());
+                self.server_raw = Some(server);
 
                 if self.send.is_some() {
                     self.register();
@@ -938,7 +957,7 @@ pub mod steamp2p {
                 }
 
                 #[cfg(feature = "dev")]
-                dbg!("server init_relay_network_access success");
+                dbg!("server init_relay_network_access success", self.server_id);
             }
 
             self.player_count = 0;
@@ -946,10 +965,10 @@ pub mod steamp2p {
 
             if let Some(sockets) = self.server_sockets.as_ref() {
                 if let Ok(listen) = sockets.create_listen_socket_p2p(0, vec![]) {
-                    self.listen_socket = Some(listen);
-
                     #[cfg(feature = "dev")]
                     dbg!("server create_listen_socket_p2p success");
+
+                    self.listen_socket = Some(listen);
                 } else {
                     return;
                 }
@@ -1286,7 +1305,7 @@ pub mod steamp2p {
             false
         }
 
-        pub fn send_message<T>(&self, msg: T, conn: &NetConnection<ClientManager>)
+        pub fn send_message<T>(&self, msg: T, conn: &NetConnection<ServerManager>)
         where
             T: INetMessage + serde::Serialize,
         {
@@ -1294,7 +1313,7 @@ pub mod steamp2p {
             self.send_message_ref(&msg, conn);
         }
 
-        pub fn send_message_ref<T>(&self, msg: &T, conn: &NetConnection<ClientManager>)
+        pub fn send_message_ref<T>(&self, msg: &T, conn: &NetConnection<ServerManager>)
         where
             T: INetMessage + serde::Serialize,
         {
@@ -1307,7 +1326,7 @@ pub mod steamp2p {
             let mut header: Vec<u8> = T::ID.into();
             header.append(&mut bytes);
 
-            let mut message = self.utils.allocate_message(header.len());
+            let mut message = self.utils.as_ref().unwrap().allocate_message(header.len());
             message.set_connection(conn);
             message.set_send_flags(SendFlags::RELIABLE_NO_NAGLE);
             message.set_data(header).unwrap();
@@ -1419,6 +1438,18 @@ pub mod steamp2p {
                                     GSPolicyResponseCallback { secure: v.secure },
                                 ))
                                 .unwrap();
+                        },
+                    )),
+                });
+
+                #[cfg(feature = "dev")]
+                self.handle.as_mut().unwrap().insert(Handle {
+                    handle: Some(svr.networking_utils().relay_network_status_callback(
+                        move |v: networking_utils::RelayNetworkStatus| {
+                            dbg!(
+                                "JSSteamServer RelayNetworkStatus Event",
+                                v.debugging_message()
+                            );
                         },
                     )),
                 });

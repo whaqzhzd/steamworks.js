@@ -314,8 +314,9 @@ export namespace steamp2p {
     broadcastCallback(callback: ({buffer,steamID}:{buffer:ArrayBuffer,steamID:bigint}) => void): void
     isConnectedToServer(): boolean
     loadReadyToGo(): void
-    runCallback(isConnectedToServer: boolean): void
+    runCallback(isConnectedToServer: boolean, policyResponseCallback: boolean): void
     setLobbyId(lobbyId: bigint): void
+    setSteamIdGameServer(lobbyId: bigint): void
     sendFrameData(types: number, buffer: Buffer): void
     setGameData(buffer: Buffer): void
     broadcast(buffer: Buffer): void
@@ -411,9 +412,11 @@ export namespace steamp2p {
     onServersConnectFailure(callback: ({reason,stillRetrying}:{reason:number,stillRetrying:boolean}) => void): void
     onServersDisconnected(callback: ({reason}:{reason:number}) => void): void
     onAllReadyToGo(callback: (count:number) => void): void
+    onGspolicyResponseCallback(callback: () => void): void
     receiveNetworkData(): void
     runCallbacks(): void
     isConnectedToSteam(): boolean
+    isPolicyResponseCallback(): boolean
     /** 设置应用ID */
     setAppid(appid: number): void
     /** 可以加入一个服务器并同时游戏的最大玩家数量 */

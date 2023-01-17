@@ -28,6 +28,6 @@ lto = true
 
 [features]
 default = ["dev","duration_control"]
-dev = []
-release = []
-duration_control = []
+dev = [ "steamworks/dev"]
+release = ["steamworks/release"]
+duration_control = ["steamworks/duration_control"]

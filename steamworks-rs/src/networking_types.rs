@@ -1145,6 +1145,9 @@ unsafe impl Callback for NetConnectionStatusChanged {
     unsafe fn from_raw(raw: *mut c_void) -> Self {
         let val = &mut *(raw as *mut sys::SteamNetConnectionStatusChangedCallback_t);
 
+        #[cfg(feature = "dev")]
+        dbg!(val.m_info.m_hListenSocket);
+
         NetConnectionStatusChanged {
             connection: val.m_hConn,
             connection_info: val.m_info.into(),
