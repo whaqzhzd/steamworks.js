@@ -91,6 +91,8 @@ struct Inner<Manager> {
     _manager: Manager,
     callbacks: Mutex<Callbacks>,
     networking_sockets_data: Mutex<NetworkingSocketsData<Manager>>,
+
+    #[cfg(feature = "dev")]
     mode: &'static str,
 }
 
@@ -173,6 +175,8 @@ impl Client<ClientManager> {
                     independent_connections: Default::default(),
                     connection_callback: Default::default(),
                 }),
+
+                #[cfg(feature = "dev")]
                 mode: "client",
             });
             Ok((

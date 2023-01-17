@@ -97,6 +97,8 @@ impl Server {
                     independent_connections: Default::default(),
                     connection_callback: Default::default(),
                 }),
+
+                #[cfg(feature = "dev")]
                 mode: "server",
             });
             Ok((

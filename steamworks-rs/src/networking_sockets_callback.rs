@@ -17,7 +17,9 @@ pub(crate) fn get_or_create_connection_callback<Manager: 'static>(
     #[cfg(feature = "dev")]
     dbg!("get_or_create_connection_callback entry");
 
+    #[cfg(feature = "dev")]
     let mode = inner.mode;
+
     let mut network_socket_data = inner.networking_sockets_data.lock().unwrap();
     if let Some(callback) = network_socket_data.connection_callback.upgrade() {
         callback
