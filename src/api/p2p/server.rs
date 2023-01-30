@@ -339,6 +339,9 @@ pub mod steamp2p {
                                         rgch_server_name: server.server_name.clone(),
                                     };
 
+                                    #[cfg(feature = "dev")]
+                                    dbg!("ListenSocketEvent::Connected::send_message MsgServerSendInfo");
+
                                     server.send_message(msg, request);
                                     server
                                         .rg_pending_client_data
@@ -346,6 +349,9 @@ pub mod steamp2p {
                                         .unwrap()
                                         .hsteam_net_connection = Some(connected.take_connection());
                                 } else {
+                                    #[cfg(feature = "dev")]
+                                    dbg!("ListenSocketEvent::Connected take_connection().close");
+
                                     connected.take_connection().close(
                                         NetConnectionEndReason::NetConnectionEnd(
                                             networking_types::NetConnectionEnd::AppException,
@@ -496,7 +502,7 @@ pub mod steamp2p {
                     }
 
                     let header: EMessage = data[0..4].to_vec().into();
-                    let body = &data[5..];
+                    let body = &data[4..];
 
                     if header == EMessage::Error {
                         drop(e); // drop call SteamAPI_SteamNetworkingMessage_t_Release
@@ -1199,8 +1205,9 @@ pub mod steamp2p {
             if self.rg_client_data.len() + self.rg_pending_client_data.len()
                 >= self.max_players.into()
             {
+                let mut br = false;
                 self.rg_pending_client_data.retain_mut(|f| {
-                    if f.steam_iduser.steam_id().unwrap() == remote {
+                    if f.steam_iduser.steam_id().unwrap() == remote && f.active {
                         f.hsteam_net_connection.take().unwrap().close(
                             NetConnectionEndReason::NetConnectionEnd(
                                 networking_types::NetConnectionEnd::AppException,
@@ -1209,12 +1216,16 @@ pub mod steamp2p {
                             false,
                         );
 
+                        br = true;
                         return false;
                     }
 
                     return true;
                 });
-                return;
+
+                if br {
+                    return;
+                }
             }
 
             self.rg_pending_client_data.retain_mut(|f| {
@@ -1289,7 +1300,10 @@ pub mod steamp2p {
             );
             self.rg_client_data.push(data);
 
-            if self.rg_client_data.len() <= self.max_players.into() {
+            if self.rg_client_data.len() < self.max_players.into() {
+                #[cfg(feature = "dev")]
+                dbg!(self.rg_client_data.len() < self.max_players.into());
+
                 return false;
             }
 
@@ -1326,7 +1340,7 @@ pub mod steamp2p {
             let mut header: Vec<u8> = T::ID.into();
             header.append(&mut bytes);
 
-            let mut message = self.utils.as_ref().unwrap().allocate_message(header.len());
+            let mut message = self.utils.as_ref().unwrap().allocate_message(0);
             message.set_connection(conn);
             message.set_send_flags(SendFlags::RELIABLE_NO_NAGLE);
             message.set_data(header).unwrap();

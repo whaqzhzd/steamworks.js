@@ -4,7 +4,7 @@ pub const HSTEAM_NET_CONNECTION_INVALID: u32 = 0;
 pub const ESTEAM_NET_CONNECTION_END_APP_MIN: i32 = 1000;
 
 // 网络协议定义
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum EMessage {
     Error = -1,
 

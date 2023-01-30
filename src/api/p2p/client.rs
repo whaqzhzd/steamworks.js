@@ -88,6 +88,9 @@ pub mod steamp2p {
                 if let Some(conn) = client.conn_server.as_ref() {
                     let messages = conn.receive_messages(32);
                     for message in messages {
+                        #[cfg(feature = "dev")]
+                        dbg!("SteamClientManager::receive message");
+
                         client.last_network_data_received_time = now();
 
                         let data = message.data();
@@ -96,6 +99,13 @@ pub mod steamp2p {
                         if client.connected_status == EClientConnectionState::KEclientNotConnected
                             && client.state != SteamClientState::KEclientGameConnecting
                         {
+                            #[cfg(feature = "dev")]
+                            dbg!(
+                                client.connected_status
+                                    == EClientConnectionState::KEclientNotConnected
+                                    && client.state != SteamClientState::KEclientGameConnecting
+                            );
+
                             drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
                             continue;
                         }
@@ -108,12 +118,18 @@ pub mod steamp2p {
                         }
 
                         let header: EMessage = data[0..4].to_vec().into();
-                        let body = &data[5..];
+                        let body = &data[4..];
 
                         if header == EMessage::Error {
+                            #[cfg(feature = "dev")]
+                            dbg!("SteamClientManager::receive EMessage::Error");
+
                             drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
                             continue;
                         }
+
+                        #[cfg(feature = "dev")]
+                        dbg!(header);
 
                         match header {
                             EMessage::KEmsgServerSendInfo => {
@@ -703,7 +719,7 @@ pub mod steamp2p {
             self.steam_id_game_server = Some(SteamId::from_raw(msg.ul_steam_idserver));
 
             if let Some(info) = self.conn_server.as_ref().unwrap().get_connection_info() {
-                self.un_server_ip = info.ip_v4().unwrap().into();
+                self.un_server_ip = info.ip_v4().map_or(0, |f| f.into());
                 self.us_server_port = info.port();
             }
 
