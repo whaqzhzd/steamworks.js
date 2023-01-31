@@ -88,7 +88,6 @@ pub mod steamp2p {
                 if let Some(conn) = client.conn_server.as_ref() {
                     let messages = conn.receive_messages(32);
                     for message in messages {
-
                         client.last_network_data_received_time = now();
 
                         let data = message.data();
@@ -604,12 +603,12 @@ pub mod steamp2p {
             buffer.set_endian(Endian::LittleEndian);
 
             let mut count = data.game_data.len();
-            
+
             if count != 0 {
                 let u16size = std::mem::size_of::<u16>();
                 let size = data.buffer_size as usize + u16size * count;
                 buffer.resize(size);
-            
+
                 let mut offset = 0;
                 let frame_data = &data.game_data;
 
@@ -643,12 +642,12 @@ pub mod steamp2p {
             buffer.set_endian(Endian::LittleEndian);
 
             let mut count = data.game_data.len();
-           
+
             if count != 0 {
                 let u16size = std::mem::size_of::<u16>();
                 let size = data.buffer_size as usize + u16size * count;
-                buffer.resize(size);    
-           
+                buffer.resize(size);
+
                 let mut offset = 0;
                 let frame_data = &data.game_data;
 
