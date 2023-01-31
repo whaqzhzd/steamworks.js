@@ -306,12 +306,17 @@ export namespace steamp2p {
     steamId: bigint
   }
   export class SteamClientManager {
+    setpStart(): void
+    setpPause(): void
+    setpResume(): void
+    setpClose(): void
     initialize(): void
     onSteamConnectedSuccess(callback: (count:number) => void): void
     onSteamAllReadyToGo(callback: () => void): void
     onSteamOnReceiveUpdate(callback: ({buffer,frameID,count}:{buffer:ArrayBuffer,frameID:number,count:number}) => void): void
     gameStartDataCallback(callback: ({buffer,count}:{buffer:ArrayBuffer,count:number}) => void): void
     broadcastCallback(callback: ({buffer,steamID}:{buffer:ArrayBuffer,steamID:bigint}) => void): void
+    setGameStartData(callback: () => void): void
     isConnectedToServer(): boolean
     loadReadyToGo(): void
     runCallback(isConnectedToServer: boolean, policyResponseCallback: boolean): void
@@ -359,6 +364,7 @@ export namespace steamp2p {
     export class SteamServer {
     constructor()
     runCallbacks(): void
+    dispatchMessage(): void
     sendUpdatedServerDetailsToSteam(): void
     isConnectedToSteam(): boolean
     /** 设置应用ID */
@@ -414,7 +420,11 @@ export namespace steamp2p {
     onAllReadyToGo(callback: (count:number) => void): void
     onGspolicyResponseCallback(callback: () => void): void
     receiveNetworkData(): void
-    runCallbacks(): void
+    runCallbacks(dt: number): void
+    setpStart(): void
+    setpPause(): void
+    setpResume(): void
+    setpClose(): void
     isConnectedToSteam(): boolean
     isPolicyResponseCallback(): boolean
     /** 设置应用ID */

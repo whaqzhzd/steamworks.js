@@ -129,7 +129,7 @@ pub mod steamp2p {
         policy_response_callback: bool,
         can_close: bool,
         setp: bool,
-        dt_total: i32,
+        dt_total: f64,
         interval: f64,
         app_id: u32,
         /// 游戏状态
@@ -168,6 +168,7 @@ pub mod steamp2p {
         handle: Option<HashSet<Handle>>,
         send: Option<Sender<SteamServerEvent>>,
 
+        frame_id: u32,
         frame_messages: HashMap<u64, Vec<MsgServerFrameData>>,
         frame_messages_size: u32,
         game_start_data: Option<MsgServerGameStart>,
@@ -566,14 +567,43 @@ pub mod steamp2p {
         }
 
         #[napi]
-        pub fn run_callbacks(&mut self) {
+        pub fn run_callbacks(&mut self, dt: f64) {
+            self.raw.run_callbacks();
             self.receive();
-
-            {
-                self.raw.run_callbacks();
-            }
-
             self.receive_network_data();
+
+            if !self.raw.setp {
+                return;
+            };
+
+            self.raw.dt_total += dt;
+            while self.raw.dt_total >= self.raw.interval {
+                self.raw.dt_total -= self.raw.interval;
+
+                self.raw.dispatch_message();
+            }
+        }
+
+        #[napi]
+        pub fn setp_start(&mut self) {
+            self.raw.setp = true;
+            self.raw.dt_total = 0.0;
+            self.raw.frame_id = 0;
+        }
+
+        #[napi]
+        pub fn setp_pause(&mut self) {
+            self.raw.setp = false;
+        }
+
+        #[napi]
+        pub fn setp_resume(&mut self) {
+            self.raw.setp = false;
+        }
+
+        #[napi]
+        pub fn setp_close(&mut self) {
+            self.raw.setp = false;
         }
 
         #[napi]
@@ -729,7 +759,7 @@ pub mod steamp2p {
                 policy_response_callback: false,
                 can_close: false,
                 setp: false,
-                dt_total: 0,
+                dt_total: 0.0,
                 interval: 0f64,
                 app_id: 0,
                 game_state: EServerGameState::KEserverExiting,
@@ -764,6 +794,7 @@ pub mod steamp2p {
                 handle: None,
                 send: None,
 
+                frame_id: 0,
                 frame_messages: HashMap::new(),
                 frame_messages_size: 0,
                 game_start_data: Some(MsgServerGameStart {
@@ -780,6 +811,29 @@ pub mod steamp2p {
             if let Some(single) = self.server_single.as_ref() {
                 single.run_callbacks();
             }
+        }
+
+        #[napi]
+        pub fn dispatch_message(&mut self) {
+            self.frame_id += 1;
+
+            let mut msg = MsgServerFramesData {
+                game_data: Vec::<MsgServerFrameData>::new(),
+                buffer_size: 0,
+                frame_id: self.frame_id,
+            };
+
+            for (_, messages) in self.frame_messages.iter_mut() {
+                msg.game_data.append(messages);
+                msg.buffer_size += messages.iter().fold(0, |acc, e| acc + e.data.len() as u32);
+            }
+
+            self.rg_client_data.iter().for_each(|client| {
+                self.send_message_ref(&msg, client.hsteam_net_connection.as_ref().unwrap());
+            });
+
+            self.frame_messages.clear();
+            self.frame_messages_size = 0;
         }
 
         #[napi]
@@ -1159,33 +1213,35 @@ pub mod steamp2p {
         }
 
         pub fn on_client_games_data(&mut self, msg: MsgClientFrameData, remote: SteamId) {
-            let data = self
-                .rg_client_data
-                .iter_mut()
-                .find(|f| f.steam_iduser.steam_id().unwrap() == remote);
+            self.rg_client_data
+                .iter()
+                .find(|f| f.steam_iduser.steam_id().unwrap() == remote)
+                .and_then(|f| {
+                    let data = self.game_start_data.as_mut().unwrap();
+                    let values = data
+                        .game_data
+                        .iter_mut()
+                        .find(|f| f.local_steam_id == remote.raw());
 
-            if let Some(_) = data.as_ref() {
-                let data = self.game_start_data.as_mut().unwrap();
+                    // 一个逻辑帧只接受同一个类型的同一个指令
+                    if let Some(d) = values {
+                        // 如果有了旧的数据
+                        // 就用新数据覆盖
+                        data.buffer_size -= d.data.len() as u32;
+                        data.buffer_size += msg.data.len() as u32;
+                        d.data = msg.data;
+                    } else {
+                        // 如果没有旧数据
+                        // 直接追加
+                        data.buffer_size = data.buffer_size + msg.data.len() as u32;
+                        data.game_data.push(msg.into());
+                    }
 
-                let values = data
-                    .game_data
-                    .iter_mut()
-                    .find(|f| f.local_steam_id == remote.raw());
-
-                // 一个逻辑帧只接受同一个类型的同一个指令
-                if let Some(d) = values {
-                    // 如果有了旧的数据
-                    // 就用新数据覆盖
-                    data.buffer_size -= d.data.len() as u32;
-                    data.buffer_size += msg.data.len() as u32;
-                    d.data = msg.data;
-                } else {
-                    // 如果没有旧数据
-                    // 直接追加
-                    data.buffer_size = data.buffer_size + msg.data.len() as u32;
-                    data.game_data.push(msg.into());
-                }
-            }
+                    Some(f.hsteam_net_connection.as_ref().unwrap())
+                })
+                .map(|conn| {
+                    self.send_message(MsgSetGameStartDataComplete, conn);
+                });
         }
 
         pub fn on_client_begin_authentication(

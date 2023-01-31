@@ -227,3 +227,10 @@ NetMessage!(
 pub struct MsgServerAllReadyToGo;
 
 NetMessage!(MsgServerAllReadyToGo, EMessage::KEmsgServerAllReadyToGo);
+
+#[derive(Deserialize, Serialize, Debug, PartialEq)]
+pub struct MsgSetGameStartDataComplete;
+NetMessage!(
+    MsgSetGameStartDataComplete,
+    EMessage::KEmsgServerSetGameStartDataComplete
+);

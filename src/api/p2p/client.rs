@@ -88,8 +88,6 @@ pub mod steamp2p {
                 if let Some(conn) = client.conn_server.as_ref() {
                     let messages = conn.receive_messages(32);
                     for message in messages {
-                        #[cfg(feature = "dev")]
-                        dbg!("SteamClientManager::receive message");
 
                         client.last_network_data_received_time = now();
 
@@ -127,9 +125,6 @@ pub mod steamp2p {
                             drop(message); // drop call SteamAPI_SteamNetworkingMessage_t_Release
                             continue;
                         }
-
-                        #[cfg(feature = "dev")]
-                        dbg!(header);
 
                         match header {
                             EMessage::KEmsgServerSendInfo => {
@@ -214,6 +209,18 @@ pub mod steamp2p {
         pub fn on_net_connection_status_changed(&mut self) {}
 
         #[napi]
+        pub fn setp_start(&self) {}
+
+        #[napi]
+        pub fn setp_pause(&self) {}
+
+        #[napi]
+        pub fn setp_resume(&self) {}
+
+        #[napi]
+        pub fn setp_close(&self) {}
+
+        #[napi]
         pub fn initialize(&mut self) {
             self.raw.initialize();
         }
@@ -279,6 +286,17 @@ pub mod steamp2p {
 
             #[cfg(feature = "dev")]
             dbg!("broadcast_callback");
+        }
+
+        #[napi(ts_args_type = "callback: () => void")]
+        pub fn set_game_start_data(&mut self, handler: JsFunction) {
+            let threadsafe_handler: ThreadsafeFunction<(), ErrorStrategy::Fatal> = handler
+                .create_threadsafe_function(0, |ctx| Ok(vec![ctx.value]))
+                .unwrap();
+            self.raw.set_game_start_data = Some(threadsafe_handler);
+
+            #[cfg(feature = "dev")]
+            dbg!("set_game_start_data");
         }
 
         #[napi]
@@ -586,11 +604,12 @@ pub mod steamp2p {
             buffer.set_endian(Endian::LittleEndian);
 
             let mut count = data.game_data.len();
-            let u16size = std::mem::size_of::<u16>();
-            let size = data.buffer_size as usize + u16size * count;
-            buffer.resize(size);
-
+            
             if count != 0 {
+                let u16size = std::mem::size_of::<u16>();
+                let size = data.buffer_size as usize + u16size * count;
+                buffer.resize(size);
+            
                 let mut offset = 0;
                 let frame_data = &data.game_data;
 
@@ -624,11 +643,12 @@ pub mod steamp2p {
             buffer.set_endian(Endian::LittleEndian);
 
             let mut count = data.game_data.len();
-            let u16size = std::mem::size_of::<u16>();
-            let size = data.buffer_size as usize + u16size * count;
-            buffer.resize(size);
-
+           
             if count != 0 {
+                let u16size = std::mem::size_of::<u16>();
+                let size = data.buffer_size as usize + u16size * count;
+                buffer.resize(size);    
+           
                 let mut offset = 0;
                 let frame_data = &data.game_data;
 

@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2", features = ["tokio_rt", "napi6", "serde-json"] }
-napi-derive = "2"
+napi = { version = "2.10.13", features = ["tokio_rt", "napi6", "serde-json"] }
+napi-derive = "2.10.0"
 lazy_static = "1"
 tokio = { version = "1", features = ["sync", "time"] }
 steamworks = { path = "./steamworks-rs", features = ["serde"]}
