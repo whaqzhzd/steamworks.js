@@ -276,6 +276,27 @@ export namespace networking {
   export function readP2PPacket(size: number): P2PPacket
   export function acceptP2PSession(steamId64: bigint): void
 }
+export namespace overlay {
+  export const enum Dialog {
+    Friends = 0,
+    Community = 1,
+    Players = 2,
+    Settings = 3,
+    OfficialGameGroup = 4,
+    Stats = 5,
+    Achievements = 6
+  }
+  export const enum StoreFlag {
+    None = 0,
+    AddToCart = 1,
+    AddToCartAndShow = 2
+  }
+  export function activateDialog(dialog: Dialog): void
+  export function activateDialogToUser(dialog: Dialog, steamId64: bigint): void
+  export function activateInviteDialog(lobbyId: bigint): void
+  export function activateToWebPage(url: string): void
+  export function activateToStore(appId: number, flag: StoreFlag): void
+}
 export namespace steamp2p {
   export function createAsyncClient(): SteamClientManager
   export const enum EServerMode {
