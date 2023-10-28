@@ -10,3 +10,4 @@ pub mod networking;
 pub mod p2p;
 pub mod stats;
 pub mod workshop;
+pub mod overlay;
