@@ -7,7 +7,7 @@ pub mod input;
 pub mod localplayer;
 pub mod matchmaking;
 pub mod networking;
+pub mod overlay;
 pub mod p2p;
 pub mod stats;
 pub mod workshop;
-pub mod overlay;
