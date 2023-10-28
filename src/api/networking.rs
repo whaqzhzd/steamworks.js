@@ -1,7 +1,9 @@
+use napi::bindgen_prelude::FromNapiValue;
 use napi_derive::napi;
 
 #[napi]
 pub mod networking {
+    use napi::bindgen_prelude::FromNapiValue;
     use napi::{
         bindgen_prelude::{BigInt, Buffer, ToNapiValue},
         Error,

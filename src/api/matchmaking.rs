@@ -1,8 +1,10 @@
+use napi::bindgen_prelude::FromNapiValue;
 use napi_derive::napi;
 
 #[napi]
 pub mod matchmaking {
     use crate::api::localplayer::PlayerSteamId;
+    use napi::bindgen_prelude::FromNapiValue;
     use napi::bindgen_prelude::{BigInt, Error, ToNapiValue};
     use std::collections::HashMap;
     use steamworks::LobbyId;

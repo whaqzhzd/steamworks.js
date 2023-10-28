@@ -1,8 +1,10 @@
+use napi::bindgen_prelude::FromNapiValue;
 use napi_derive::napi;
 
 #[napi]
 pub mod callback {
     use napi::bindgen_prelude::BigInt;
+    use napi::bindgen_prelude::FromNapiValue;
     use napi::{
         bindgen_prelude::ToNapiValue,
         threadsafe_function::{ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode},
