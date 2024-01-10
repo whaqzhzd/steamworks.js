@@ -62,61 +62,63 @@ impl<Manager> Input<Manager> {
         }
     }
 
-    pub fn get_controller_type(&self,handle:u64) -> XSteamInputType {
-        unsafe { match sys::SteamAPI_ISteamInput_GetInputTypeForHandle(self.input, handle) {
-            sys::ESteamInputType::k_ESteamInputType_Unknown => {
-                XSteamInputType::KEsteamInputTypeUnknown
-            },
-            sys::ESteamInputType::k_ESteamInputType_SteamController => {
-                XSteamInputType::KEsteamInputTypeSteamController
-            },
-            sys::ESteamInputType::k_ESteamInputType_XBox360Controller => {
-                XSteamInputType::KEsteamInputTypeXbox360controller
-            },
-            sys::ESteamInputType::k_ESteamInputType_XBoxOneController => {
-                XSteamInputType::KEsteamInputTypeXboxOneController
-            },
-            sys::ESteamInputType::k_ESteamInputType_GenericGamepad => {
-                XSteamInputType::KEsteamInputTypeGenericGamepad
-            },
-            sys::ESteamInputType::k_ESteamInputType_PS4Controller => {
-                XSteamInputType::KEsteamInputTypePs4controller
-            },
-            sys::ESteamInputType::k_ESteamInputType_AppleMFiController => {
-                XSteamInputType::KEsteamInputTypeAppleMfiController
-            },
-            sys::ESteamInputType::k_ESteamInputType_AndroidController => {
-                XSteamInputType::KEsteamInputTypeAndroidController
-            },
-            sys::ESteamInputType::k_ESteamInputType_SwitchJoyConPair => {
-                XSteamInputType::KEsteamInputTypeSwitchJoyConPair
-            },
-            sys::ESteamInputType::k_ESteamInputType_SwitchJoyConSingle => {
-                XSteamInputType::KEsteamInputTypeSwitchJoyConSingle
-            },
-            sys::ESteamInputType::k_ESteamInputType_SwitchProController => {
-                XSteamInputType::KEsteamInputTypeSwitchProController
-            }, 
-            sys::ESteamInputType::k_ESteamInputType_MobileTouch => {
-                XSteamInputType::KEsteamInputTypeMobileTouch
-            },
-            sys::ESteamInputType::k_ESteamInputType_PS3Controller => {
-                XSteamInputType::KEsteamInputTypePs3controller
-            },
-            sys::ESteamInputType::k_ESteamInputType_PS5Controller => {
-                XSteamInputType::KEsteamInputTypePs5controller
-            },
-            sys::ESteamInputType::k_ESteamInputType_SteamDeckController => {
-                XSteamInputType::KEsteamInputTypeSteamDeckController
-            },
-            sys::ESteamInputType::k_ESteamInputType_Count => {
-                XSteamInputType::KEsteamInputTypeCount
-            },
-            sys::ESteamInputType::k_ESteamInputType_MaximumPossibleValue => {
-                XSteamInputType::KEsteamInputTypeMaximumPossibleValue
-            },
-            _=> XSteamInputType::KEsteamInputTypeUnknown
-        }}
+    pub fn get_controller_type(&self, handle: u64) -> XSteamInputType {
+        unsafe {
+            match sys::SteamAPI_ISteamInput_GetInputTypeForHandle(self.input, handle) {
+                sys::ESteamInputType::k_ESteamInputType_Unknown => {
+                    XSteamInputType::KEsteamInputTypeUnknown
+                }
+                sys::ESteamInputType::k_ESteamInputType_SteamController => {
+                    XSteamInputType::KEsteamInputTypeSteamController
+                }
+                sys::ESteamInputType::k_ESteamInputType_XBox360Controller => {
+                    XSteamInputType::KEsteamInputTypeXbox360controller
+                }
+                sys::ESteamInputType::k_ESteamInputType_XBoxOneController => {
+                    XSteamInputType::KEsteamInputTypeXboxOneController
+                }
+                sys::ESteamInputType::k_ESteamInputType_GenericGamepad => {
+                    XSteamInputType::KEsteamInputTypeGenericGamepad
+                }
+                sys::ESteamInputType::k_ESteamInputType_PS4Controller => {
+                    XSteamInputType::KEsteamInputTypePs4controller
+                }
+                sys::ESteamInputType::k_ESteamInputType_AppleMFiController => {
+                    XSteamInputType::KEsteamInputTypeAppleMfiController
+                }
+                sys::ESteamInputType::k_ESteamInputType_AndroidController => {
+                    XSteamInputType::KEsteamInputTypeAndroidController
+                }
+                sys::ESteamInputType::k_ESteamInputType_SwitchJoyConPair => {
+                    XSteamInputType::KEsteamInputTypeSwitchJoyConPair
+                }
+                sys::ESteamInputType::k_ESteamInputType_SwitchJoyConSingle => {
+                    XSteamInputType::KEsteamInputTypeSwitchJoyConSingle
+                }
+                sys::ESteamInputType::k_ESteamInputType_SwitchProController => {
+                    XSteamInputType::KEsteamInputTypeSwitchProController
+                }
+                sys::ESteamInputType::k_ESteamInputType_MobileTouch => {
+                    XSteamInputType::KEsteamInputTypeMobileTouch
+                }
+                sys::ESteamInputType::k_ESteamInputType_PS3Controller => {
+                    XSteamInputType::KEsteamInputTypePs3controller
+                }
+                sys::ESteamInputType::k_ESteamInputType_PS5Controller => {
+                    XSteamInputType::KEsteamInputTypePs5controller
+                }
+                sys::ESteamInputType::k_ESteamInputType_SteamDeckController => {
+                    XSteamInputType::KEsteamInputTypeSteamDeckController
+                }
+                sys::ESteamInputType::k_ESteamInputType_Count => {
+                    XSteamInputType::KEsteamInputTypeCount
+                }
+                sys::ESteamInputType::k_ESteamInputType_MaximumPossibleValue => {
+                    XSteamInputType::KEsteamInputTypeMaximumPossibleValue
+                }
+                _ => XSteamInputType::KEsteamInputTypeUnknown,
+            }
+        }
     }
 
     /// Returns a list of the currently connected controllers without allocating, and the count
