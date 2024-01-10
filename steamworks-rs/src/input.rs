@@ -2,6 +2,28 @@ use sys::InputHandle_t;
 
 use super::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum XSteamInputType {
+    KEsteamInputTypeUnknown = 0,
+    KEsteamInputTypeSteamController = 1,
+    KEsteamInputTypeXbox360controller = 2,
+    KEsteamInputTypeXboxOneController = 3,
+    KEsteamInputTypeGenericGamepad = 4,
+    KEsteamInputTypePs4controller = 5,
+    KEsteamInputTypeAppleMfiController = 6,
+    KEsteamInputTypeAndroidController = 7,
+    KEsteamInputTypeSwitchJoyConPair = 8,
+    KEsteamInputTypeSwitchJoyConSingle = 9,
+    KEsteamInputTypeSwitchProController = 10,
+    KEsteamInputTypeMobileTouch = 11,
+    KEsteamInputTypePs3controller = 12,
+    KEsteamInputTypePs5controller = 13,
+    KEsteamInputTypeSteamDeckController = 14,
+    KEsteamInputTypeCount = 15,
+    KEsteamInputTypeMaximumPossibleValue = 255,
+}
+
 /// Access to the steam input interface
 pub struct Input<Manager> {
     pub(crate) input: *mut sys::ISteamInput,
@@ -38,6 +60,63 @@ impl<Manager> Input<Manager> {
                 std::slice::from_raw_parts(handles as *const _, quantity as usize).to_vec()
             }
         }
+    }
+
+    pub fn get_controller_type(&self,handle:u64) -> XSteamInputType {
+        unsafe { match sys::SteamAPI_ISteamInput_GetInputTypeForHandle(self.input, handle) {
+            sys::ESteamInputType::k_ESteamInputType_Unknown => {
+                XSteamInputType::KEsteamInputTypeUnknown
+            },
+            sys::ESteamInputType::k_ESteamInputType_SteamController => {
+                XSteamInputType::KEsteamInputTypeSteamController
+            },
+            sys::ESteamInputType::k_ESteamInputType_XBox360Controller => {
+                XSteamInputType::KEsteamInputTypeXbox360controller
+            },
+            sys::ESteamInputType::k_ESteamInputType_XBoxOneController => {
+                XSteamInputType::KEsteamInputTypeXboxOneController
+            },
+            sys::ESteamInputType::k_ESteamInputType_GenericGamepad => {
+                XSteamInputType::KEsteamInputTypeGenericGamepad
+            },
+            sys::ESteamInputType::k_ESteamInputType_PS4Controller => {
+                XSteamInputType::KEsteamInputTypePs4controller
+            },
+            sys::ESteamInputType::k_ESteamInputType_AppleMFiController => {
+                XSteamInputType::KEsteamInputTypeAppleMfiController
+            },
+            sys::ESteamInputType::k_ESteamInputType_AndroidController => {
+                XSteamInputType::KEsteamInputTypeAndroidController
+            },
+            sys::ESteamInputType::k_ESteamInputType_SwitchJoyConPair => {
+                XSteamInputType::KEsteamInputTypeSwitchJoyConPair
+            },
+            sys::ESteamInputType::k_ESteamInputType_SwitchJoyConSingle => {
+                XSteamInputType::KEsteamInputTypeSwitchJoyConSingle
+            },
+            sys::ESteamInputType::k_ESteamInputType_SwitchProController => {
+                XSteamInputType::KEsteamInputTypeSwitchProController
+            }, 
+            sys::ESteamInputType::k_ESteamInputType_MobileTouch => {
+                XSteamInputType::KEsteamInputTypeMobileTouch
+            },
+            sys::ESteamInputType::k_ESteamInputType_PS3Controller => {
+                XSteamInputType::KEsteamInputTypePs3controller
+            },
+            sys::ESteamInputType::k_ESteamInputType_PS5Controller => {
+                XSteamInputType::KEsteamInputTypePs5controller
+            },
+            sys::ESteamInputType::k_ESteamInputType_SteamDeckController => {
+                XSteamInputType::KEsteamInputTypeSteamDeckController
+            },
+            sys::ESteamInputType::k_ESteamInputType_Count => {
+                XSteamInputType::KEsteamInputTypeCount
+            },
+            sys::ESteamInputType::k_ESteamInputType_MaximumPossibleValue => {
+                XSteamInputType::KEsteamInputTypeMaximumPossibleValue
+            },
+            _=> XSteamInputType::KEsteamInputTypeUnknown
+        }}
     }
 
     /// Returns a list of the currently connected controllers without allocating, and the count

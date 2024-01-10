@@ -3,10 +3,33 @@ use napi_derive::napi;
 #[napi]
 pub mod input {
     use napi::bindgen_prelude::BigInt;
+    use napi::bindgen_prelude::ToNapiValue;
+
+    #[napi]
+    #[derive(PartialEq, Eq)]
+    pub enum SteamInputType {
+        KEsteamInputTypeUnknown = 0,
+        KEsteamInputTypeSteamController = 1,
+        KEsteamInputTypeXbox360controller = 2,
+        KEsteamInputTypeXboxOneController = 3,
+        KEsteamInputTypeGenericGamepad = 4,
+        KEsteamInputTypePs4controller = 5,
+        KEsteamInputTypeAppleMfiController = 6,
+        KEsteamInputTypeAndroidController = 7,
+        KEsteamInputTypeSwitchJoyConPair = 8,
+        KEsteamInputTypeSwitchJoyConSingle = 9,
+        KEsteamInputTypeSwitchProController = 10,
+        KEsteamInputTypeMobileTouch = 11,
+        KEsteamInputTypePs3controller = 12,
+        KEsteamInputTypePs5controller = 13,
+        KEsteamInputTypeSteamDeckController = 14,
+        KEsteamInputTypeCount = 15,
+        KEsteamInputTypeMaximumPossibleValue = 255,
+    }
 
     #[napi]
     pub struct Controller {
-        pub(crate) handle: BigInt,
+        pub handle: BigInt,
     }
 
     #[napi]
@@ -37,6 +60,64 @@ pub mod input {
             AnalogActionVector {
                 x: data.x as f64,
                 y: data.y as f64,
+            }
+        }
+
+        #[napi]
+        pub fn get_controller_type(&self) -> SteamInputType {
+            let client = crate::client::get_client();
+            match client.input().get_controller_type(self.handle.get_u64().1) {
+                steamworks::XSteamInputType::KEsteamInputTypeUnknown => {
+                    SteamInputType::KEsteamInputTypeUnknown
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeSteamController => {
+                    SteamInputType::KEsteamInputTypeSteamController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeXbox360controller => {
+                    SteamInputType::KEsteamInputTypeXbox360controller
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeXboxOneController => {
+                    SteamInputType::KEsteamInputTypeXboxOneController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeGenericGamepad => {
+                    SteamInputType::KEsteamInputTypeGenericGamepad
+                }
+                steamworks::XSteamInputType::KEsteamInputTypePs4controller => {
+                    SteamInputType::KEsteamInputTypePs4controller
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeAppleMfiController => {
+                    SteamInputType::KEsteamInputTypeAppleMfiController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeAndroidController => {
+                    SteamInputType::KEsteamInputTypeAndroidController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeSwitchJoyConPair => {
+                    SteamInputType::KEsteamInputTypeSwitchJoyConPair
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeSwitchJoyConSingle => {
+                    SteamInputType::KEsteamInputTypeSwitchJoyConSingle
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeSwitchProController => {
+                    SteamInputType::KEsteamInputTypeSwitchProController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeMobileTouch => {
+                    SteamInputType::KEsteamInputTypeMobileTouch
+                }
+                steamworks::XSteamInputType::KEsteamInputTypePs3controller => {
+                    SteamInputType::KEsteamInputTypePs3controller
+                }
+                steamworks::XSteamInputType::KEsteamInputTypePs5controller => {
+                    SteamInputType::KEsteamInputTypePs5controller
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeSteamDeckController => {
+                    SteamInputType::KEsteamInputTypeSteamDeckController
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeCount => {
+                    SteamInputType::KEsteamInputTypeCount
+                }
+                steamworks::XSteamInputType::KEsteamInputTypeMaximumPossibleValue => {
+                    SteamInputType::KEsteamInputTypeMaximumPossibleValue
+                }
             }
         }
     }

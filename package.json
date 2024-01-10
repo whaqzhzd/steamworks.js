@@ -28,6 +28,7 @@
     "scripts": {
         "build": "node build --release && npm run types",
         "build:debug": "node build",
+        "build:encrypt": "node build --features \"default,encrypt\"",
         "prune": "rimraf dist target client.d.ts",
         "format": "cargo fmt",
         "types": "tsc index.js --allowJs --declaration --emitDeclarationOnly"

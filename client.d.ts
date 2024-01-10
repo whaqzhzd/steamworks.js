@@ -1,14 +1,15 @@
-export function init(appId: number): void
-export function restartAppIfNecessary(appId: number): boolean
-export function runCallbacks(): void
 export interface PlayerSteamId {
   steamId64: bigint
   steamId32: string
   accountId: number
 }
+export function init(appId: number): void
+export function restartAppIfNecessary(appId: number): boolean
+export function runCallbacks(): void
 export namespace achievement {
   export function activate(achievement: string): boolean
   export function isActivated(achievement: string): boolean
+  export function clear(achievement: string): boolean
 }
 export namespace apps {
   export function isSubscribedApp(appId: number): boolean
@@ -132,6 +133,25 @@ export namespace cloud {
   export function fileExists(name: string): boolean
 }
 export namespace input {
+  export const enum SteamInputType {
+    KEsteamInputTypeUnknown = 0,
+    KEsteamInputTypeSteamController = 1,
+    KEsteamInputTypeXbox360controller = 2,
+    KEsteamInputTypeXboxOneController = 3,
+    KEsteamInputTypeGenericGamepad = 4,
+    KEsteamInputTypePs4controller = 5,
+    KEsteamInputTypeAppleMfiController = 6,
+    KEsteamInputTypeAndroidController = 7,
+    KEsteamInputTypeSwitchJoyConPair = 8,
+    KEsteamInputTypeSwitchJoyConSingle = 9,
+    KEsteamInputTypeSwitchProController = 10,
+    KEsteamInputTypeMobileTouch = 11,
+    KEsteamInputTypePs3controller = 12,
+    KEsteamInputTypePs5controller = 13,
+    KEsteamInputTypeSteamDeckController = 14,
+    KEsteamInputTypeCount = 15,
+    KEsteamInputTypeMaximumPossibleValue = 255
+  }
   export interface AnalogActionVector {
     x: number
     y: number
@@ -143,9 +163,11 @@ export namespace input {
   export function getAnalogAction(actionName: string): bigint
   export function shutdown(): void
   export class Controller {
+    handle: bigint
     activateActionSet(actionSetHandle: bigint): void
     isDigitalActionPressed(actionHandle: bigint): boolean
     getAnalogActionVector(actionHandle: bigint): AnalogActionVector
+    getControllerType(): SteamInputType
   }
 }
 export namespace localplayer {
