@@ -26,7 +26,7 @@
         "node": ">= 14"
     },
     "scripts": {
-        "build": "node build --release && npm run types",
+        "build": " npm run types && node build --release",
         "build:debug": "node build",
         "build:encrypt": "node build --features \"default,encrypt\"",
         "prune": "rimraf dist target client.d.ts",
