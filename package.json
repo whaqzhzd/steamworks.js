@@ -30,7 +30,7 @@
         "build:debug": "node build",
         "build:encrypt": "node build --features \"default,encrypt\"",
         "prune": "rimraf dist target client.d.ts",
-        "format": "cargo fmt",
+        "format": "cargo fmt --all -- --check",
         "types": "tsc index.js --allowJs --declaration --emitDeclarationOnly"
     },
     "repository": {
