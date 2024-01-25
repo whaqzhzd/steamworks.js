@@ -493,6 +493,10 @@ impl Leaderboard {
     pub fn raw(&self) -> u64 {
         self.0
     }
+
+    pub fn new(id: u64) -> Leaderboard {
+        Leaderboard(id)
+    }
 }
 
 #[test]

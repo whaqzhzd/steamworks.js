@@ -517,6 +517,22 @@ export namespace stats {
   export function setInt(name: string, value: number): boolean
   export function store(): boolean
   export function resetAll(achievementsToo: boolean): boolean
+  export function getLeaderboardEntryCount(id: bigint): number
+  export function uploadLeaderboardScore(id: bigint, method: number, score: number, details: Array<number>): Promise<LeaderboardUploadedScore | null>
+  export function downloadLeaderboardEntries(id: bigint, start: number, end: number, maxDetailsLen: number): Promise<Array<LeaderboardInfo>>
+  export function findOrCreateLeaderboard(name: string): Promise<bigint>
+  export class LeaderboardInfo {
+    user: bigint
+    globalRank: number
+    score: number
+    details: Array<number>
+  }
+  export class LeaderboardUploadedScore {
+    score: number
+    wasChanged: boolean
+    globalRankNew: number
+    globalRankPrevious: number
+  }
 }
 export namespace workshop {
   export interface UgcResult {
